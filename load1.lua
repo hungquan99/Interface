@@ -326,7 +326,7 @@ function Library.new(config)
 	HomeIcon.ZIndex = 49
 	HomeIcon.Image = "rbxassetid://137212456917215"
 	HomeIcon.ScaleType = Enum.ScaleType.Fit
-	HomeIcon.ImageTransparency = 0;
+	HomeIcon.ImageTransparency = 1;
 	HomeIcon.BackgroundTransparency = 1;
 	
 	local function Update()
