@@ -1,3 +1,4 @@
+
 -- ICON: https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json -
 
 local Twen = game:GetService('TweenService');
@@ -336,11 +337,7 @@ function Library.new(config)
 			Twen:Create(Headers,TweenInfo1,{BackgroundTransparency = 0.5}):Play();
 			Twen:Create(Logo,TweenInfo1,{ImageTransparency = 0}):Play();
 			Twen:Create(MainFrame,TweenInfo.new(0.5,Enum.EasingStyle.Quint),{Position = UDim2.fromScale(0.5,0.5)}):Play();
-			WindowTable.ElBlurUI.Enabled = false;
-			
-			Twen:Create(BlockFrame1,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
-			Twen:Create(BlockFrame2,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
-			Twen:Create(BlockFrame3,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
+			WindowTable.ElBlurUI.Enabled = true;
 			
 			Twen:Create(TabButtonFrame,TweenInfo1,{Position = UDim2.fromScale(0.16,0.215)}):Play();
 			Twen:Create(MainTabFrame,TweenInfo1,{Position = UDim2.fromScale(0.658,0.131)}):Play();
