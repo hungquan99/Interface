@@ -1,4 +1,3 @@
-
 -- ICON: https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json -
 
 local Twen = game:GetService('TweenService');
@@ -337,7 +336,7 @@ function Library.new(config)
 			Twen:Create(Headers,TweenInfo1,{BackgroundTransparency = 0.5}):Play();
 			Twen:Create(Logo,TweenInfo1,{ImageTransparency = 0}):Play();
 			Twen:Create(MainFrame,TweenInfo.new(0.5,Enum.EasingStyle.Quint),{Position = UDim2.fromScale(0.5,0.5)}):Play();
-			WindowTable.ElBlurUI.Enabled = true;
+			WindowTable.ElBlurUI.Enabled = false;
 			
 			Twen:Create(BlockFrame1,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
 			Twen:Create(BlockFrame2,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
@@ -408,6 +407,8 @@ function Library.new(config)
 		if WindowTable.ToggleButton then
 			WindowTable.ToggleButton();
 		end;
+
+		task.delay(1,WindowTable.ElBlurUI.Update)
 	end;
 
 	Twen:Create(ImageButton,TweenInfo1,{
@@ -2446,6 +2447,7 @@ function Library.new(config)
 	local startPos = nil;
 
 	local function updateInput(input)
+		WindowTable.ElBlurUI.Update()
 		local delta = input.Position - dragStart;
 		local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
 			startPos.Y.Scale, startPos.Y.Offset + delta.Y);
@@ -3452,6 +3454,6 @@ function Library:Console()
 	return overview;
 end;
 
-print('[ Interface ]: Fetch Skull Hub Library')
+print('[ OK ]: Fetch Nothing Library')
 
 return table.freeze(Library);
