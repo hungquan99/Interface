@@ -1,4 +1,3 @@
-
 -- ICON: https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json -
 
 local Twen = game:GetService('TweenService');
@@ -313,7 +312,7 @@ function Library.new(config)
 	ImageButton.Size = UDim2.new(0.0850000009, 0, 0.0850000009, 0)
 	ImageButton.SizeConstraint = Enum.SizeConstraint.RelativeYY
 	ImageButton.ZIndex = 50
-	ImageButton.Image = "rbxassetid://137212456917215"
+	ImageButton.Image = "rbxassetid://10002398990"
 	ImageButton.ImageTransparency = 1
 	
 	local HomeIcon = Instance.new("ImageLabel")
@@ -325,7 +324,7 @@ function Library.new(config)
 	HomeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	HomeIcon.Size = UDim2.new(0.7,0,0.7,0)
 	HomeIcon.ZIndex = 49
-	HomeIcon.Image = "rbxassetid://7733993211"
+	HomeIcon.Image = "rbxassetid://137212456917215"
 	HomeIcon.ScaleType = Enum.ScaleType.Fit
 	HomeIcon.ImageTransparency = 1;
 	HomeIcon.BackgroundTransparency = 1;
@@ -338,6 +337,10 @@ function Library.new(config)
 			Twen:Create(Logo,TweenInfo1,{ImageTransparency = 0}):Play();
 			Twen:Create(MainFrame,TweenInfo.new(0.5,Enum.EasingStyle.Quint),{Position = UDim2.fromScale(0.5,0.5)}):Play();
 			WindowTable.ElBlurUI.Enabled = true;
+			
+			Twen:Create(BlockFrame1,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
+			Twen:Create(BlockFrame2,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
+			Twen:Create(BlockFrame3,TweenInfo1,{BackgroundTransparency = 0.8}):Play();
 			
 			Twen:Create(TabButtonFrame,TweenInfo1,{Position = UDim2.fromScale(0.16,0.215)}):Play();
 			Twen:Create(MainTabFrame,TweenInfo1,{Position = UDim2.fromScale(0.658,0.131)}):Play();
@@ -357,7 +360,7 @@ function Library.new(config)
 				ImageTransparency = 1,
 			}):Play()
 
-			ImageButton.Image = "rbxassetid://137212456917215"
+			ImageButton.Image = "rbxassetid://10002398990"
 			
 			Twen:Create(UICorner,TweenInfo.new(1),{
 				CornerRadius = UDim.new(0, 7)
@@ -391,6 +394,11 @@ function Library.new(config)
 			
 			
 			Twen:Create(Title,TweenInfo1,{Position = UDim2.fromScale(1,0.071)}):Play();
+
+			
+			Twen:Create(BlockFrame1,TweenInfo1,{BackgroundTransparency = 1}):Play();
+			Twen:Create(BlockFrame2,TweenInfo1,{BackgroundTransparency = 1}):Play();
+			Twen:Create(BlockFrame3,TweenInfo1,{BackgroundTransparency = 1}):Play();
 
 			WindowTable.ElBlurUI.Enabled = false;
 		end;
@@ -3446,6 +3454,6 @@ function Library:Console()
 	return overview;
 end;
 
-print('[ OK ]: Fetch Nothing Library')
+print('[ Interface ]: Fetch Skull Hub Library')
 
 return table.freeze(Library);
