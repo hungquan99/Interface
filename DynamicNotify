@@ -12,9 +12,8 @@ screenGui.Name = "DynamicIslandUI"
 local function createNotification(title, text, duration, imageId)
     duration = duration or 5 -- Default duration is 5 seconds
 
-    -- Notification Holder Frame
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 100) -- Increased height for the image
+    frame.Size = UDim2.new(0, 300, 0, 100)
     frame.Position = UDim2.new(0.5, 0, 0, -200)
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -23,12 +22,10 @@ local function createNotification(title, text, duration, imageId)
     frame.Visible = false
     frame.Parent = screenGui
 
-    -- Rounded Corners
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 20)
     corner.Parent = frame
 
-    -- Image (if provided)
     if imageId then
         local imageLabel = Instance.new("ImageLabel")
         imageLabel.Size = UDim2.new(0, 60, 0, 60)
@@ -38,7 +35,6 @@ local function createNotification(title, text, duration, imageId)
         imageLabel.Parent = frame
     end
 
-    -- Title Text
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1, imageId and -80 or -40, 0, 25) -- Adjust size for image
     titleLabel.Position = UDim2.new(imageId and 0, 80 or 20, 0, 10)
@@ -51,7 +47,6 @@ local function createNotification(title, text, duration, imageId)
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.Parent = frame
 
-    -- Body Text
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, imageId and -80 or -40, 0, 30) -- Adjust size for image
     textLabel.Position = UDim2.new(imageId and 0, 80 or 20, 0, 40)
