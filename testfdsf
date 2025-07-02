@@ -1,0 +1,1191 @@
+--// Pelinda Authentication Library (Enhanced)
+--// Enhanced with better structure, error handling, and performance optimizations
+
+--// Constants and Configuration
+local VERSION = _VERSION:find("Lune") and "\0Lune" or "Luau"
+local START_TIME = os.clock()
+local JUMPS = 0
+local SECURITY_LEVELS = {1, 2, 3}
+
+--// Cached Lua Functions
+local luaFunctions = {
+    print = print,
+    error = error,
+    setmetatable = setmetatable,
+    rawset = rawset,
+    rawget = rawget,
+    pairs = pairs,
+    newproxy = newproxy,
+    getmetatable = getmetatable,
+    typeof = typeof,
+    assert = assert,
+    tostring = tostring,
+    bit32 = {
+        bxor = bit32.bxor,
+        rrotate = bit32.rrotate
+    },
+    os = {
+        clock = os.clock,
+        time = os.time
+    },
+    string = {
+        format = string.format,
+        sub = string.sub,
+        pack = string.pack
+    },
+    buffer = {
+        copy = buffer.copy,
+        fill = buffer.fill,
+        create = buffer.create,
+        fromstring = buffer.fromstring,
+        len = buffer.len,
+        readu8 = buffer.readu8,
+        readu16 = buffer.readu16,
+        readu32 = buffer.readu32,
+        tostring = buffer.tostring,
+        writestring = buffer.writestring,
+        writeu8 = buffer.writeu8,
+        writeu16 = buffer.writeu16,
+        writeu32 = buffer.writeu32
+    },
+    math = {
+        floor = math.floor,
+        random = math.random
+    }
+}
+
+--// Environment Detection
+local ENV = getfenv()
+local gethwid = VERSION == "\0Lune" and function()
+    return "spxnso"
+end or (gethwid or function()
+    return string.gsub(game:GetService("RbxAnalyticsService"):GetClientId(), "-", "")
+end)
+
+--// Internal State
+local silentMode = false
+local serviceName
+local licenseKey
+local userEnv = getfenv(2)
+
+--// Error Handling
+local function crash(code, message)
+    if not silentMode then
+        luaFunctions.print(string.format("[ERROR %d]: %s", code, message or "Crashed"))
+    end
+    while true do end
+end
+
+local function safePrint(...)
+    if not silentMode then
+        luaFunctions.print(...)
+    end
+end
+
+--// Security Checks
+local function verifyFunctionIntegrity()
+    local errors = 0
+    local functionsToCheck = {
+        luaFunctions.tostring,
+        luaFunctions.setmetatable,
+        setfenv,
+        luaFunctions.buffer.tostring
+    }
+    
+    for _, func in ipairs(functionsToCheck) do
+        local success, _ = pcall(function()
+            func()
+        end)
+        if not success then
+            errors = errors + 1
+        end
+    end
+    
+    if errors ~= #functionsToCheck then
+        crash(2, "Function integrity check failed")
+    end
+end
+
+--// Junk Code Generator
+local function generateJunkTable()
+    local junkTbl = {}
+    local maxIdx = luaFunctions.math.random(2, 10)
+    
+    if maxIdx < 2 or maxIdx > 10 then
+        crash(1, "Invalid junk table index")
+    end
+    
+    for i = 1, luaFunctions.math.random(2, 10) do
+        local randomStr = tostring({}) .. luaFunctions.math.random(1e6, 2e6)
+        junkTbl[randomStr] = tostring({}) .. luaFunctions.math.random(1e6, 2e6)
+    end
+    return junkTbl
+end
+
+--// Closure Verification
+local function isCClosure(closure)
+    local success = pcall(function()
+        setfenv(closure, getfenv(closure))
+    end)
+    return not success
+end
+
+local function checkStackOverflow(closure)
+    local wrapped = closure
+    for _ = 1, 198 do
+        wrapped = coroutine.wrap(wrapped)
+    end
+    
+    local success, errorMsg = pcall(wrapped)
+    return not success and string.find(errorMsg, "C stack overflow") or false
+end
+
+--// Closure and Table Wrapping
+local function wrapClosure(closure)
+    local totalWrapped = 0
+    local function wrapFunc(f)
+        return function(f1)
+            return f1
+        end
+    end
+    
+    local function wrapReturn(f)
+        totalWrapped = totalWrapped + 1
+        if totalWrapped == 82 then
+            totalWrapped = 0
+            return f
+        end
+        return wrapFunc(function(f1)
+            return f1
+        end)(f)
+    end
+    return wrapReturn(closure)
+end
+
+local function wrapTable(secret)
+    local totalWrapped = 0
+    local function wrapFunc(tbl)
+        return {
+            __index = function()
+                return tbl
+            end
+        }
+    end
+    
+    local function wrapReturn(tbl)
+        totalWrapped = totalWrapped + 1
+        if totalWrapped == 82 then
+            totalWrapped = 0
+            return tbl
+        end
+        return wrapFunc({__index = function() return tbl end}).__index()
+    end
+    return wrapReturn(secret)
+end
+
+--// Random Number Generation
+local Rng = {
+    generateSeed = function()
+        local time = luaFunctions.os.time()
+        local clock = luaFunctions.os.clock()
+        local pid = luaFunctions.math.floor(luaFunctions.math.random() * 1e6)
+        return (time * 1664525 + clock + pid) % (2 ^ 32)
+    end,
+    
+    lcg = function(seed, count, min, max)
+        local numbers = {}
+        local a, c, m = 1664525, 1013904223, 2 ^ 32
+        local num = seed
+        
+        for i = 1, count do
+            num = (a * num + c) % m
+            numbers[i] = min + (num % (max - min + 1))
+        end
+        return numbers
+    end,
+    
+    sign = function(num, secret)
+        return num + (#secret % 1000) ^ 2
+    end
+}
+
+--// JSON Handling
+local Json = wrapTable({
+    null = {},
+    
+    kind_of = function(obj)
+        if type(obj) ~= "table" then return type(obj) end
+        local i = 1
+        for _ in pairs(obj) do
+            if obj[i] ~= nil then
+                i = i + 1
+            else
+                return "table"
+            end
+        end
+        return i == 1 and "table" or "array"
+    end,
+    
+    escape_str = function(s)
+        local in_char = {'\\', '"', '/', '\b', '\f', '\n', '\r', '\t'}
+        local out_char = {'\\', '"', '/', 'b', 'f', 'n', 'r', 't'}
+        for i, c in ipairs(in_char) do
+            s = s:gsub(c, "\\" .. out_char[i])
+        end
+        return s
+    end,
+    
+    skip_delim = function(str, pos, delim, err_if_missing)
+        pos = pos + #str:match("^%s*", pos)
+        if str:sub(pos, pos) ~= delim then
+            if err_if_missing then
+                error("Expected " .. delim .. " near position " .. pos)
+            end
+            return pos, false
+        end
+        return pos + 1, true
+    end,
+    
+    parse_str_val = function(str, pos, val)
+        val = val or ""
+        if pos > #str then
+            error("End of input found while parsing string")
+        end
+        local c = str:sub(pos, pos)
+        if c == '"' then
+            return val, pos + 1
+        end
+        if c ~= "\\" then
+            return Json.parse_str_val(str, pos + 1, val .. c)
+        end
+        local esc_map = {b = "\b", f = "\f", n = "\n", r = "\r", t = "\t"}
+        local nextc = str:sub(pos + 1, pos + 1)
+        if not nextc then
+            error("End of input found while parsing string")
+        end
+        return Json.parse_str_val(str, pos + 2, val .. (esc_map[nextc] or nextc))
+    end,
+    
+    parse_num_val = function(str, pos)
+        local num_str = str:match("^-?%d+%.?%d*[eE]?[+-]?%d*", pos)
+        local val = tonumber(num_str)
+        if not val then
+            error("Error parsing number at position " .. pos)
+        end
+        return val, pos + #num_str
+    end,
+    
+    stringify = function(obj, as_key)
+        local s = {}
+        local kind = Json.kind_of(obj)
+        if kind == "array" then
+            if as_key then error("Can't encode array as key") end
+            table.insert(s, "[")
+            for i, val in ipairs(obj) do
+                if i > 1 then table.insert(s, ",") end
+                table.insert(s, Json.stringify(val))
+            end
+            table.insert(s, "]")
+        elseif kind == "table" then
+            if as_key then error("Can't encode table as key") end
+            table.insert(s, "{")
+            local first = true
+            for k, v in pairs(obj) do
+                if not first then table.insert(s, ",") end
+                first = false
+                table.insert(s, Json.stringify(k, true))
+                table.insert(s, ":")
+                table.insert(s, Json.stringify(v))
+            end
+            table.insert(s, "}")
+        elseif kind == "string" then
+            return '"' .. Json.escape_str(obj) .. '"'
+        elseif kind == "number" then
+            return as_key and '"' .. luaFunctions.tostring(obj) .. '"' or luaFunctions.tostring(obj)
+        elseif kind == "boolean" then
+            return luaFunctions.tostring(obj)
+        elseif kind == "nil" then
+            return "null"
+        elseif kind == "userdata" then
+            return '"' .. luaFunctions.tostring(obj) .. '"'
+        else
+            error("Unjsonifiable type: " .. kind)
+        end
+        return table.concat(s)
+    end,
+    
+    parse = function(str, pos, end_delim)
+        pos = pos or 1
+        if pos > #str then
+            error("Reached unexpected end of input")
+        end
+        local first = str:sub(pos, pos)
+        if first == "{" then
+            local obj, key, delim_found = {}, nil, true
+            pos = pos + 1
+            while true do
+                key, pos = Json.parse(str, pos, "}")
+                if key == nil then return obj, pos end
+                if not delim_found then error("Comma missing between object items") end
+                pos = Json.skip_delim(str, pos, ":", true)
+                obj[key], pos = Json.parse(str, pos)
+                pos, delim_found = Json.skip_delim(str, pos, ",")
+            end
+        elseif first == "[" then
+            local arr, val, delim_found = {}, nil, true
+            pos = pos + 1
+            while true do
+                val, pos = Json.parse(str, pos, "]")
+                if val == nil then return arr, pos end
+                if not delim_found then error("Comma missing between array items") end
+                table.insert(arr, val)
+                pos, delim_found = Json.skip_delim(str, pos, ",")
+            end
+        elseif first == '"' then
+            return Json.parse_str_val(str, pos + 1)
+        elseif first == "-" or first:match("%d") then
+            return Json.parse_num_val(str, pos)
+        elseif first == end_delim then
+            return nil, pos + 1
+        else
+            for k, v in pairs({["true"] = true, ["false"] = false, ["null"] = Json.null}) do
+                if str:sub(pos, pos + #k - 1) == k then
+                    return v, pos + #k
+                end
+            end
+            error("Invalid json syntax at position " .. pos)
+        end
+    end
+})
+
+--// Cryptography Module
+local Cryptography = wrapTable({
+    AES = function(masterKey)
+        --// Lookup Tables
+        local S_BOX_16 = luaFunctions.buffer.create(131072)
+        local S_MIX0 = luaFunctions.buffer.create(65536)
+        local S_MIX1 = luaFunctions.buffer.create(65536)
+        local INV_S_XOR = luaFunctions.buffer.create(65536)
+        local INV_MIX0 = luaFunctions.buffer.create(65536)
+        local INV_MIX1 = luaFunctions.buffer.create(65536)
+
+        --// CBC Mode
+        local CBCMode = {
+            FwdMode = function(encp, _, text, out, _, iv)
+                local len = luaFunctions.buffer.len(text) - 16
+                luaFunctions.assert(len % 16 == 0, "Input length must be a multiple of 16 bytes")
+                iv = iv or luaFunctions.buffer.create(16)
+                luaFunctions.assert(luaFunctions.buffer.len(iv) == 16, "Initialization vetor must be 16 bytes")
+                
+                for i = 0, 12, 4 do
+                    luaFunctions.buffer.writeu32(out, i, luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu32(text, i),
+                        luaFunctions.buffer.readu32(iv, i)
+                    ))
+                end
+                encp(out, 0, out, 0)
+                
+                for offs = 16, len, 16 do
+                    for i = 0, 12, 4 do
+                        luaFunctions.buffer.writeu32(out, offs + i, luaFunctions.bit32.bxor(
+                            luaFunctions.buffer.readu32(text, offs + i),
+                            luaFunctions.buffer.readu32(out, offs - 16 + i)
+                        ))
+                    end
+                    encp(out, offs, out, offs)
+                end
+            end,
+            
+            InvMode = function(_, decp, ciph, out, _, iv)
+                local len = luaFunctions.buffer.len(ciph) - 16
+                luaFunctions.assert(len % 16 == 0, "Input length must be a multiple of 16 bytes")
+                iv = iv or luaFunctions.buffer.create(16)
+                luaFunctions.assert(luaFunctions.buffer.len(iv) == 16, "Initialization vector must be 16 bytes")
+                
+                local words = {}
+                for i = 0, 12, 4 do
+                    words[i/4 + 1] = luaFunctions.buffer.readu32(ciph, i)
+                end
+                
+                decp(ciph, 0, out, 0)
+                for i = 0, 12, 4 do
+                    luaFunctions.buffer.writeu32(out, i, luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu32(out, i),
+                        luaFunctions.buffer.readu32(iv, i)
+                    ))
+                end
+                
+                for offs = 16, len, 16 do
+                    local newWords = {}
+                    for i = 0, 12, 4 do
+                        newWords[i/4 + 1] = luaFunctions.buffer.readu32(ciph, offs + i)
+                    end
+                    decp(ciph, offs, out, offs)
+                    for i = 0, 12, 4 do
+                        luaFunctions.buffer.writeu32(out, offs + i, luaFunctions.bit32.bxor(
+                            luaFunctions.buffer.readu32(out, offs + i),
+                            words[i/4 + 1]
+                        ))
+                    end
+                    words = newWords
+                end
+            end
+        }
+
+        --// PKCS7 Padding
+        local Pkcs7 = {
+            Pad = function(text, out, segm)
+                local len = luaFunctions.buffer.len(text)
+                local offs = len - len % segm
+                out = out or luaFunctions.buffer.create(offs + segm)
+                local offb = segm - len % segm
+                luaFunctions.assert(luaFunctions.buffer.len(out) >= len + segm, "Output buffer out of bounds")
+                luaFunctions.buffer.copy(out, 0, text, 0, len)
+                luaFunctions.buffer.fill(out, len, offb, offb)
+                return out
+            end,
+            
+            Unpad = function(text, out, segm)
+                local len = luaFunctions.buffer.len(text)
+                local offs = luaFunctions.buffer.readu8(text, len - 1)
+                local offb = len - offs
+                luaFunctions.assert(0 < offs and offs <= segm, "Invalid padding")
+                for i = offb, len - 2 do
+                    if luaFunctions.buffer.readu8(text, i) ~= offs then
+                        error("Invalid padding")
+                    end
+                end
+                out = out or luaFunctions.buffer.create(offb)
+                luaFunctions.assert(luaFunctions.buffer.len(out) >= offb, "Output buffer out of bounds")
+                luaFunctions.buffer.copy(out, 0, text, 0, offb)
+                return out
+            end,
+            Overwrite = nil
+        }
+
+        --// Key Schedule
+        local function keySchedule(key, len, out, raw)
+            if raw then
+                luaFunctions.buffer.copy(out, 0, key, 0, len)
+            else
+                luaFunctions.buffer.writestring(out, 0, key, len)
+            end
+            
+            local word = luaFunctions.bit32.rrotate(luaFunctions.buffer.readu32(out, len - 4), 8)
+            local rc = 0.5
+            
+            local function writeKeyBlock(offs, prevOffs, step, rounds, finalValue)
+                for i = offs, offs + rounds - step, step do
+                    rc = rc * 2 % 229
+                    word = luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu32(out, i - prevOffs),
+                        luaFunctions.buffer.readu16(S_BOX_16, luaFunctions.math.floor(word / 65536) * 2) * 65536 +
+                        luaFunctions.buffer.readu16(S_BOX_16, word % 65536 * 2),
+                        rc
+                    )
+                    luaFunctions.buffer.writeu32(out, i, word)
+                    
+                    for j = 4, step - 4, 4 do
+                        word = luaFunctions.bit32.bxor(
+                            luaFunctions.buffer.readu32(out, i - prevOffs + j),
+                            word
+                        )
+                        luaFunctions.buffer.writeu32(out, i + j, word)
+                    end
+                    word = luaFunctions.bit32.rrotate(word, 8)
+                end
+                
+                word = luaFunctions.bit32.bxor(
+                    luaFunctions.buffer.readu32(out, offs + rounds),
+                    luaFunctions.buffer.readu16(S_BOX_16, luaFunctions.math.floor(word / 65536) * 2) * 65536 +
+                    luaFunctions.buffer.readu16(S_BOX_16, word % 65536 * 2),
+                    finalValue
+                )
+                luaFunctions.buffer.writeu32(out, offs + rounds + step, word)
+                
+                for j = 4, step - 4, 4 do
+                    word = luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu32(out, offs + rounds + j),
+                        word
+                    )
+                    luaFunctions.buffer.writeu32(out, offs + rounds + step + j, word)
+                end
+            end
+            
+            if len == 32 then
+                writeKeyBlock(32, 32, 32, 192, 64)
+            elseif len == 24 then
+                writeKeyBlock(24, 24, 24, 168, 128)
+            else
+                writeKeyBlock(16, 16, 16, 144, 54)
+            end
+            return out
+        end
+
+        --// Encryption Block
+        local function encryptBlock(keym, lenm, text, offs, out, offt)
+            local b = {}
+            for i = 0, 15 do
+                b[i] = luaFunctions.bit32.bxor(
+                    luaFunctions.buffer.readu8(text, offs + i),
+                    luaFunctions.buffer.readu8(keym, i)
+                )
+            end
+            
+            local i = {}
+            for j = 0, 15 do
+                i[j] = b[(j * 5) % 16] * 256 + b[(j * 5 + 5) % 16]
+            end
+            
+            for round = 16, lenm, 16 do
+                for j = 0, 15 do
+                    b[j] = luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(S_MIX0, i[j]),
+                        luaFunctions.buffer.readu8(S_MIX1, i[(j + 2) % 16]),
+                        luaFunctions.buffer.readu8(keym, round + j)
+                    )
+                end
+                for j = 0, 15 do
+                    i[j] = b[(j * 5) % 16] * 256 + b[(j * 5 + 5) % 16]
+                end
+            end
+            
+            for j = 0, 3 do
+                luaFunctions.buffer.writeu32(out, offt + j * 4, luaFunctions.bit32.bxor(
+                    luaFunctions.buffer.readu16(S_BOX_16, luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(S_MIX0, i[(j * 5 + 15) % 16]),
+                        luaFunctions.buffer.readu8(S_MIX1, i[(j * 5 + 13) % 16]),
+                        luaFunctions.buffer.readu8(keym, lenm + 31 - j * 4)
+                    ) * 512 + luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(S_MIX0, i[(j * 5 + 10) % 16]),
+                        luaFunctions.buffer.readu8(S_MIX1, i[(j * 5 + 8) % 16]),
+                        luaFunctions.buffer.readu8(keym, lenm + 26 - j * 4)
+                    ) * 2) * 65536 + luaFunctions.buffer.readu16(S_BOX_16, luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(S_MIX0, i[(j * 5 + 5) % 16]),
+                        luaFunctions.buffer.readu8(S_MIX1, i[(j * 5 + 7) % 16]),
+                        luaFunctions.buffer.readu8(keym, lenm + 21 - j * 4)
+                    ) * 512 + luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(S_MIX0, i[(j * 5) % 16]),
+                        luaFunctions.buffer.readu8(S_MIX1, i[(j * 5 + 2) % 16]),
+                        luaFunctions.buffer.readu8(keym, lenm + 16 - j * 4)
+                    ) * 2),
+                    luaFunctions.buffer.readu32(keym, lenm + 32 + j * 4)
+                ))
+            end
+        end
+
+        --// Decryption Block
+        local function decryptBlock(keym, lenm, ciph, offs, out, offt)
+            local b = {}
+            for i = 0, 15 do
+                b[i] = luaFunctions.bit32.bxor(
+                    luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(ciph, offs + (i * 13) % 16) * 256 +
+                    luaFunctions.buffer.readu8(keym, lenm + 32 + i)),
+                    luaFunctions.buffer.readu8(keym, lenm + 16 + i)
+                )
+            end
+            
+            local i = {}
+            for j = 0, 15 do
+                i[j] = b[j] * 256 + b[(j + 1) % 16]
+            end
+            
+            for round = lenm, 16, -16 do
+                for j = 0, 15 do
+                    b[j] = luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(INV_MIX0, i[(j * 13) % 16]) * 256 +
+                        luaFunctions.buffer.readu8(INV_MIX1, i[(j * 13 + 2) % 16])),
+                        luaFunctions.buffer.readu8(keym, round + j)
+                    )
+                end
+                for j = 0, 15 do
+                    i[j] = b[j] * 256 + b[(j + 1) % 16]
+                end
+            end
+            
+            for j = 0, 3 do
+                luaFunctions.buffer.writeu32(out, offt + j * 4, 
+                    luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(INV_MIX0, i[(j * 5 + 7) % 16]) * 256 +
+                        luaFunctions.buffer.readu8(INV_MIX1, i[(j * 5 + 5) % 16])),
+                        luaFunctions.buffer.readu8(keym, 3 - j)
+                    ) * 16777216 +
+                    luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(INV_MIX0, i[(j * 5 + 10) % 16]) * 256 +
+                        luaFunctions.buffer.readu8(INV_MIX1, i[(j * 5 + 8) % 16])),
+                        luaFunctions.buffer.readu8(keym, 2 - j)
+                    ) * 65536 +
+                    luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(INV_MIX0, i[(j * 5 + 13) % 16]) * 256 +
+                        luaFunctions.buffer.readu8(INV_MIX1, i[(j * 5 + 15) % 16])),
+                        luaFunctions.buffer.readu8(keym, 1 - j)
+                    ) * 256 +
+                    luaFunctions.bit32.bxor(
+                        luaFunctions.buffer.readu8(INV_S_XOR, luaFunctions.buffer.readu8(INV_MIX0, i[(j * 5) % 16]) * 256 +
+                        luaFunctions.buffer.readu8(INV_MIX1, i[(j * 5 + 2) % 16])),
+                        luaFunctions.buffer.readu8(keym, 0 - j)
+                    )
+                )
+            end
+        end
+
+        --// Substitution Box and Mix Columns
+        do
+            local S_BOX = luaFunctions.buffer.create(256)
+            local INV_S_BOX = luaFunctions.buffer.create(256)
+            local MUL3 = luaFunctions.buffer.create(256)
+            local MUL9 = luaFunctions.buffer.create(256)
+            local MUL11 = luaFunctions.buffer.create(256)
+            
+            local function gfmul(a, b)
+                local p = 0
+                for _ = 0, 7 do
+                    if b % 2 == 1 then
+                        p = luaFunctions.bit32.bxor(p, a)
+                    end
+                    a = a >= 128 and luaFunctions.bit32.bxor(a * 2 % 256, 27) or a * 2 % 256
+                    b = luaFunctions.math.floor(b / 2)
+                end
+                return p
+            end
+            
+            luaFunctions.buffer.writeu8(S_BOX, 0, 99)
+            local p, q = 1, 1
+            for _ = 1, 255 do
+                p = luaFunctions.bit32.bxor(p, p * 2, p < 128 and 0 or 27) % 256
+                q = luaFunctions.bit32.bxor(q, q * 2)
+                q = luaFunctions.bit32.bxor(q, q * 4)
+                q = luaFunctions.bit32.bxor(q, q * 16) % 256
+                if q >= 128 then
+                    q = luaFunctions.bit32.bxor(q, 9)
+                end
+                local t = luaFunctions.bit32.bxor(q, q % 128 * 2 + q / 128, q % 64 * 4 + q / 64,
+                    q % 32 * 8 + q / 32, q % 16 * 16 + q / 16, 99)
+                luaFunctions.buffer.writeu8(S_BOX, p, t)
+                luaFunctions.buffer.writeu8(INV_S_BOX, t, p)
+                luaFunctions.buffer.writeu8(MUL3, p, gfmul(3, p))
+                luaFunctions.buffer.writeu8(MUL9, p, gfmul(9, p))
+                luaFunctions.buffer.writeu8(MUL11, p, gfmul(11, p))
+            end
+            
+            local t = 0
+            for i = 0, 255 do
+                local p = luaFunctions.buffer.readu8(S_BOX, i)
+                local pb = p * 256
+                local g2, g13, g14 = gfmul(2, p), gfmul(13, i), gfmul(14, i)
+                for j = 0, 255 do
+                    local q = luaFunctions.buffer.readu8(S_BOX, j)
+                    luaFunctions.buffer.writeu16(S_BOX_16, t * 2, pb + q)
+                    luaFunctions.buffer.writeu8(INV_S_XOR, t, luaFunctions.buffer.readu8(INV_S_BOX, luaFunctions.bit32.bxor(i, j)))
+                    luaFunctions.buffer.writeu8(S_MIX0, t, luaFunctions.bit32.bxor(g2, luaFunctions.buffer.readu8(MUL3, q)))
+                    luaFunctions.buffer.writeu8(S_MIX1, t, luaFunctions.bit32.bxor(p, q))
+                    luaFunctions.buffer.writeu8(INV_MIX0, t, luaFunctions.bit32.bxor(g14, luaFunctions.buffer.readu8(MUL11, j)))
+                    luaFunctions.buffer.writeu8(INV_MIX1, t, luaFunctions.bit32.bxor(g13, luaFunctions.buffer.readu8(MUL9, j)))
+                    t = t + 1
+                end
+            end
+        end
+
+        --// AES Cipher Implementation
+        local function expandKey(key, output)
+            local raw = luaFunctions.typeof(key) == "buffer"
+            local len = raw and luaFunctions.buffer.len(key) or #key
+            local lenx = len == 32 and 240 or len == 24 and 208 or len == 16 and 176 or error("Key must be 16, 24, or 32 bytes")
+            return keySchedule(key, len, output or luaFunctions.buffer.create(lenx), raw)
+        end
+
+        local function fromKey(roundKeys, mode, pad)
+            local len = luaFunctions.buffer.len(roundKeys)
+            local lenm, key
+            if len == 240 then
+                lenm, key = 192, luaFunctions.string.sub(luaFunctions.buffer.tostring(roundKeys), 1, 32)
+            elseif len == 208 then
+                lenm, key = 160, luaFunctions.string.sub(luaFunctions.buffer.tostring(roundKeys), 1, 24)
+            elseif len == 176 then
+                lenm, key = 128, luaFunctions.string.sub(luaFunctions.buffer.tostring(roundKeys), 1, 16)
+            else
+                error("Round keys must be 240, 208, or 176 bytes")
+            end
+
+            local keym, mode, pad = roundKeys, mode or CBCMode, pad or Pkcs7
+            local fwd, inv, segm = mode.FwdMode, mode.InvMode, mode.SegmentSize or 16
+            local pd, upd = pad.Pad, pad.Unpad
+            local cipher = luaFunctions.newproxy(true)
+            local meta = luaFunctions.getmetatable(cipher)
+
+            local function encp(plaintext, offset, output, offsetOut)
+                encryptBlock(keym, lenm, plaintext, offset, output, offsetOut)
+            end
+            
+            local function decp(ciphertext, offset, output, offsetOut)
+                decryptBlock(keym, lenm, ciphertext, offset, output, offsetOut)
+            end
+
+            local function encrypt(self, plaintext, output, ...)
+                local raw = luaFunctions.typeof(plaintext)
+                local text = raw == "buffer" and plaintext or
+                            raw == "string" and luaFunctions.buffer.fromstring(plaintext) or
+                            error("Unable to cast " .. raw .. " to buffer")
+                output = luaFunctions.typeof(output) == "buffer" and output
+                if self ~= cipher then
+                    return self:Encrypt(text, output, ...)
+                elseif lenm then
+                    local out = pd(text, output, segm)
+                    fwd(encp, decp, pad.Overwrite == false and text or out, out, mode, ...)
+                    return out
+                else
+                    error("AesCipher object destroyed")
+                    return luaFunctions.buffer.create(0)
+                end
+            end
+
+            local function decrypt(self, ciphertext, output, ...)
+                local raw = luaFunctions.typeof(ciphertext)
+                local ciph = raw == "buffer" and ciphertext or
+                            raw == "string" and luaFunctions.buffer.fromstring(ciphertext) or
+                            error("Unable to cast " .. raw .. " to buffer")
+                output = luaFunctions.typeof(output) == "buffer" and output
+                if self ~= cipher then
+                    return self:Decrypt(ciph, output, ...)
+                elseif lenm then
+                    local ovw = pad.Overwrite
+                    local text = ovw == nil and luaFunctions.buffer.create(luaFunctions.buffer.len(ciph)) or
+                                ovw and ciph or
+                                output or luaFunctions.buffer.create(luaFunctions.buffer.len(ciph))
+                    inv(encp, decp, ciph, text, mode, ...)
+                    return upd(text, output, segm)
+                else
+                    error("AesCipher object destroyed")
+                    return luaFunctions.buffer.create(0)
+                end
+            end
+
+            local function destroy(self)
+                if self ~= cipher then
+                    self:Destroy()
+                elseif lenm then
+                    keym, lenm, fwd, inv, mode, pad, key, len = nil
+                else
+                    error("AesCipher object destroyed")
+                end
+            end
+
+            meta.__index = function(_, idx)
+                return idx == "Encrypt" and encrypt or
+                       idx == "Decrypt" and decrypt or
+                       idx == "Destroy" and destroy or
+                       lenm and (idx == "Key" and key or
+                                idx == "RoundKeys" and luaFunctions.buffer.tostring(roundKeys) or
+                                idx == "Mode" and mode or
+                                idx == "Padding" and pad or
+                                idx == "Length" and len or
+                                error(idx .. " is not a valid member of AesCipher")) or
+                       error("AesCipher object destroyed")
+            end
+            meta.__newindex = function(_, idx) error(idx .. " cannot be assigned to") end
+            meta.__tostring = function() return "AesCipher" end
+            meta.__len = function() return len or error("AesCipher object destroyed") end
+            meta.__metatable = "AesCipher object: Metatable locked"
+            return cipher
+        end
+
+        return fromKey(expandKey(masterKey), CBCMode, Pkcs7)
+    end,
+
+    HASH = function(msg)
+        local MOD = 2 ^ 32
+        local MODM = MOD - 1
+
+        local function memoize(f)
+            local mt = {}
+            local t = luaFunctions.setmetatable({}, mt)
+            mt.__index = function(_, k)
+                local v = f(k)
+                t[k] = v
+                return v
+            end
+            return t
+        end
+
+        local function make_bitop_uncached(t, m)
+            local function bitop(a, b)
+                local res, p = 0, 1
+                while a ~= 0 and b ~= 0 do
+                    local am, bm = a % m, b % m
+                    res = res + t[am][bm] * p
+                    a, b, p = (a - am) / m, (b - bm) / m, p * m
+                end
+                return res + (a + b) * p
+            end
+            return bitop
+        end
+
+        local function make_bitop(t)
+            local op1 = make_bitop_uncached(t, 2 ^ 1)
+            local op2 = memoize(function(a)
+                return memoize(function(b)
+                    return op1(a, b)
+                end)
+            end)
+            return make_bitop_uncached(op2, 2 ^ (t.n or 1))
+        end
+
+        local bxor1 = make_bitop({[0] = {[0] = 0, [1] = 1}, [1] = {[0] = 1, [1] = 0}, n = 4})
+
+        local function bxor(a, b, c, ...)
+            if b then
+                a, b = a % MOD, b % MOD
+                local z = bxor1(a, b)
+                return c and bxor(z, c, ...) or z
+            end
+            return a and a % MOD or 0
+        end
+
+        local function band(a, b, c, ...)
+            if b then
+                a, b = a % MOD, b % MOD
+                local z = ((a + b) - bxor1(a, b)) / 2
+                return c and band(z, c, ...) or z
+            end
+            return a and a % MOD or MODM
+        end
+
+        local function bnot(x)
+            return (-1 - x) % MOD
+        end
+
+        local function rshift(a, disp)
+            return disp > 31 or disp < -31 and 0 or
+                   luaFunctions.math.floor(a % MOD / 2 ^ disp)
+        end
+
+        local function lshift(a, disp)
+            return disp < 0 and rshift(a, -disp) or
+                   (a * 2 ^ disp) % 2 ^ 32
+        end
+
+        local function rrotate(x, disp)
+            x, disp = x % MOD, disp % 32
+            local low = band(x, 2 ^ disp - 1)
+            return rshift(x, disp) + lshift(low, 32 - disp)
+        end
+
+        local k = {
+            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+            0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+            0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+            0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+            0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+            0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+            0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+            0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+            0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+        }
+
+        local function str2hexa(s)
+            return s:gsub(".", function(c)
+                return luaFunctions.string.format("%02x", string.byte(c))
+            end)
+        end
+
+        local function num2s(l, n)
+            local s = ""
+            for _ = 1, n do
+                local rem = l % 256
+                s = string.char(rem) .. s
+                l = (l - rem) / 256
+            end
+            return s
+        end
+
+        local function s232num(s, i)
+            local n = 0
+            for j = i, i + 3 do
+                n = n * 256 + string.byte(s, j)
+            end
+            return n
+        end
+
+        local function preproc(msg, len)
+            local extra = 64 - ((len + 9) % 64)
+            len = num2s(8 * len, 8)
+            msg = msg .. "\128" .. string.rep("\0", extra) .. len
+            luaFunctions.assert(#msg % 64 == 0)
+            return msg
+        end
+
+        local function initH256(H)
+            H[1], H[2], H[3], H[4] = 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+            H[5], H[6], H[7], H[8] = 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+            return H
+        end
+
+        local function digestblock(msg, i, H)
+            local w = {}
+            for j = 1, 16 do
+                w[j] = s232num(msg, i + (j - 1) * 4)
+            end
+            for j = 17, 64 do
+                local v = w[j - 15]
+                local s0 = bxor(rrotate(v, 7), rrotate(v, 18), rshift(v, 3))
+                v = w[j - 2]
+                w[j] = w[j - 16] + s0 + w[j - 7] + bxor(rrotate(v, 17), rrotate(v, 19), rshift(v, 10))
+            end
+
+            local a, b, c, d, e, f, g, h = H[1], H[2], H[3], H[4], H[5], H[6], H[7], H[8]
+            for i = 1, 64 do
+                local s0 = bxor(rrotate(a, 2), rrotate(a, 13), rrotate(a, 22))
+                local maj = bxor(band(a, b), band(a, c), band(b, c))
+                local t2 = s0 + maj
+                local s1 = bxor(rrotate(e, 6), rrotate(e, 11), rrotate(e, 25))
+                local ch = bxor(band(e, f), band(bnot(e), g))
+                local t1 = h + s1 + ch + k[i] + w[i]
+                h, g, f, e, d, c, b, a = g, f, e, d + t1, c, b, a, t1 + t2
+            end
+
+            for i = 1, 8 do
+                H[i] = band(H[i] + select(i, a, b, c, d, e, f, g, h))
+            end
+        end
+
+        local function sha256(msg)
+            msg = preproc(msg, #msg)
+            local H = initH256({})
+            for i = 1, #msg, 64 do
+                digestblock(msg, i, H)
+            end
+            return str2hexa(table.concat({
+                num2s(H[1], 4), num2s(H[2], 4), num2s(H[3], 4), num2s(H[4], 4),
+                num2s(H[5], 4), num2s(H[6], 4), num2s(H[7], 4), num2s(H[8], 4)
+            }))
+        end
+        return sha256(msg)
+    end
+})
+
+--// Helper Functions
+local Helpers = wrapTable({
+    padString = function(str)
+        local trimmed = str:sub(1, luaFunctions.math.floor(#str / 16) * 16)
+        local padLen = 16 - (#trimmed % 16)
+        return trimmed .. string.rep("0", padLen == 16 and 0 or padLen)
+    end,
+    
+    strToHex = function(str)
+        return str:gsub(".", function(char)
+            return luaFunctions.string.format("%02x", char:byte())
+        end)
+    end,
+    
+    hexToBin = function(hex)
+        return hex:gsub("..", function(cc)
+            return string.char(tonumber(cc, 16))
+        end)
+    end,
+    
+    bytesToHex = function(bytes)
+        local hex = ""
+        for i = 0, #bytes do
+            if bytes[i] then
+                hex = hex .. luaFunctions.string.format("%02x", bytes[i])
+            end
+        end
+        return hex
+    end,
+    
+    hexToBytes = function(hex)
+        local bytes = {}
+        local byteIndex = 0
+        for i = 1, #hex, 2 do
+            bytes[byteIndex] = tonumber(hex:sub(i, i + 1), 16)
+            byteIndex = byteIndex + 1
+        end
+        return bytes
+    end
+})
+
+--// Pelinda Main Module
+local Pelinda = {}
+Pelinda.__index = Pelinda
+
+function Pelinda.GetKeyLink(content)
+    luaFunctions.assert(type(content) == "table" and content.Service, "Invalid content: Service required")
+    serviceName = content.Service or crash(6, "Service not provided")
+    
+    local success, revenueMode = pcall(function()
+        return game:HttpGet("https://pandadevelopment.net/api/revenue-mode?service=" .. serviceName)
+    end)
+    
+    if not success then
+        crash(6, "Failed to fetch revenue mode")
+    end
+    
+    local mode = revenueMode:match('{"revenueMode":"(.-)"}') or "DEFAULT"
+    local baseUrl = "https://pandadevelopment.net/getkey"
+    local hwid = gethwid()
+    
+    if mode:match("SECURED") then
+        return baseUrl .. "/proceed_hwid?service=" .. serviceName .. "&hwid=" .. hwid
+    end
+    return baseUrl .. "?service=" .. serviceName .. "&hwid=" .. hwid
+end
+
+function Pelinda.Init(content)
+    luaFunctions.assert(type(content) == "table", "Content must be a table")
+    luaFunctions.assert(content.Service, "Service name required")
+    luaFunctions.assert(type(content.SecurityLevel) == "number" and
+                       table.find(SECURITY_LEVELS, content.SecurityLevel), "Invalid security level")
+    
+    local securityLevel = content.SecurityLevel or 1
+    serviceName = content.Service or crash(9, "Service not provided")
+    silentMode = content.SilentMode ~= nil and content.SilentMode or crash(10, "Silent mode not specified")
+    licenseKey = content.Key or crash(11, "License key not provided")
+    
+    verifyFunctionIntegrity()
+    
+    local task = VERSION:find("Luau") and task or require("@lune/task")
+    local junk = generateJunkTable()
+    
+    task.spawn(function()
+        junk[luaFunctions.setmetatable] = checkStackOverflow(luaFunctions.setmetatable) or
+                                         not isCClosure(luaFunctions.setmetatable)
+        junk[luaFunctions.tostring] = checkStackOverflow(luaFunctions.tostring) or
+                                     not isCClosure(luaFunctions.tostring)
+        junk[luaFunctions.math.random] = checkStackOverflow(luaFunctions.math.random) or
+                                        not isCClosure(luaFunctions.math.random)
+        
+        while type(silentMode) == "function" do
+            for i, v in pairs(junk) do
+                if v == true then
+                    crash(8, "Security violation detected")
+                end
+            end
+            task.wait(luaFunctions.math.random(0.001, 0.01))
+        end
+        junk["nil"] = "os.time"
+    end)
+    
+    local function validate()
+        local rng = Rng.sign(Rng.lcg(Rng.generateSeed(), 1, 1e6, 9e9)[1], serviceName)
+        local initPayload = {rng = rng, iv = 16}
+        
+        local initReqParams = VERSION == "\0Lune" and {
+            url = "https://pandadevelopment.net/v3_lua_validation/init",
+            method = "POST",
+            headers = {["Content-Type"] = "application/json"},
+            body = Json.stringify(initPayload)
+        } or {
+            Url = "https://pandadevelopment.net/v3_lua_validation/init",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = Json.stringify(initPayload)
+        }
+        
+        local success, initResBody = pcall(request, initReqParams)
+        if not success then
+            crash(15, "Initialization request failed")
+        end
+        
+        local initRes = Json.parse(initResBody.Body)
+        if initRes.iv ~= initPayload.iv or tonumber(initRes.rng) ~= initPayload.rng * 3.14 then
+            crash(15, "Invalid initialization response")
+        end
+        
+        local clientSecret = Cryptography.__index().HASH("16" .. rng)
+        local serverSecret = Cryptography.__index().HASH("16" .. rng * 3.14)
+        local aesKey = Cryptography.__index().HASH(clientSecret .. serverSecret)
+        
+        local validationPayload = {
+            payload = Helpers.__index().strToHex(luaFunctions.buffer.tostring(
+                Cryptography.__index().AES(Helpers.__index().hexToBin(aesKey)):Encrypt(
+                    Json.stringify({
+                        licenseKey = licenseKey,
+                        service = serviceName,
+                        hwid = gethwid(),
+                        timestamp = luaFunctions.os.time(),
+                        clientInfo = {
+                            version = VERSION,
+                            env = ENV
+                        }
+                    })
+                )
+            )),
+            secret = clientSecret
+        }
+        
+        local validationReqParams = VERSION == "\0Lune" and {
+            url = "https://pandadevelopment.net/v3_lua_validation/validate",
+            method = "POST",
+            headers = {["Content-Type"] = "application/json"},
+            body = Json.stringify(validationPayload)
+        } or {
+            Url = "https://pandadevelopment.net/v3_lua_validation/validate",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = Json.stringify(validationPayload)
+        }
+        
+        local success, validationResBody = pcall(request, validationReqParams)
+        if not success then
+            crash(16, "Validation request failed")
+        end
+        
+        local jsonBody = Json.parse(validationResBody.Body)
+        if not jsonBody.success then
+            safePrint("Incorrect key!")
+            if securityLevel == 2 then
+                game.Players.LocalPlayer:Kick("Incorrect key!")
+            elseif securityLevel == 3 then
+                game.Players.LocalPlayer:Kick("Incorrect key!")
+                while true do end
+            end
+            return "invalid!!"
+        end
+        
+        if jsonBody.secret ~= serverSecret then
+            crash(16, "Server secret mismatch")
+        end
+        
+        local decodedPayload = Json.parse(luaFunctions.buffer.tostring(
+            Cryptography.__index().AES(Helpers.__index().hexToBin(aesKey)):Decrypt(
+                luaFunctions.buffer.fromstring(Helpers.__index().hexToBin(jsonBody.payload))
+            )
+        ))
+        
+        if decodedPayload.status ~= "success" then
+            crash(17, "Validation status failure")
+        end
+        
+        userEnv.__PELINDA_KEY_EXPIRES_AT__ = decodedPayload.keyInfo.expiresAt
+        userEnv.__PELINDA_KEY_HWID__ = decodedPayload.keyInfo.hwid
+        userEnv.__PELINDA_IS_PREMIUM__ = decodedPayload.keyInfo.isPremium
+        userEnv.__PELINDA_IS_KEYLESS__ = decodedPayload.keyInfo.keyless
+        
+        local endTime = luaFunctions.os.clock()
+        safePrint(luaFunctions.string.format("[PELINDA] Validated in %f seconds", endTime - START_TIME))
+        return "validated!!"
+    end
+    
+    JUMPS = JUMPS + 133
+    return luaFunctions.setmetatable({Validated = generateJunkTable(), APIKey = luaFunctions.math.random(1e6, 2e6)}, {
+        __index = function(self, idx)
+            local tbl = generateJunkTable()
+            crash(12, "Invalid index access")
+            return luaFunctions.rawget(tbl, idx)
+        end,
+        __newindex = function(self, idx)
+            local tbl = generateJunkTable()
+            crash(13, "Invalid new index")
+            return luaFunctions.rawset(tbl, idx)
+        end,
+        __tostring = function()
+            crash(14, "Invalid tostring operation")
+            return luaFunctions.tostring(generateJunkTable())
+        end,
+        __call = wrapClosure(validate)
+    })()
+end
+
+return Pelinda
