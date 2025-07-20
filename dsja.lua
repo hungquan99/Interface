@@ -29,14 +29,14 @@ local frame = Instance.new("Frame")
 frame.AnchorPoint = Vector2.new(0.5, 1)
 frame.BackgroundTransparency = 1
 frame.Position = UDim2.new(0.5, 0, 1, -20)
-frame.Size = UDim2.new(0, 400, 0, 300) -- Increased height to accommodate more notifications
+frame.Size = UDim2.new(0, 600, 0, 400) -- Increased container size for more notifications
 frame.Parent = screen_gui
 
 local uilist_layout = Instance.new("UIListLayout")
 uilist_layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
 uilist_layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-uilist_layout.Padding = UDim.new(0, 8)
+uilist_layout.Padding = UDim.new(0, 10)
 uilist_layout.Parent = frame
 
 -- Notification type configurations
@@ -86,11 +86,11 @@ function Notif.New(config)
 
     local frame_3 = Instance.new("Frame")
     frame_3.AnchorPoint = Vector2.new(0.5, 1)
-    frame_3.AutomaticSize = Enum.AutomaticSize.XY -- Auto-size for both X and Y
+    frame_3.AutomaticSize = Enum.AutomaticSize.XY
     frame_3.BackgroundColor3 = bgColor
     frame_3.BackgroundTransparency = 0.1
     frame_3.Position = UDim2.new(0.5, 0, 1, 60)
-    frame_3.Size = UDim2.new(0, 0, 0, 0) -- Start with zero size for animation
+    frame_3.Size = UDim2.new(0, 0, 0, 0)
     frame_3.Parent = frame_2
 
     local uicorner = Instance.new("UICorner")
@@ -98,10 +98,10 @@ function Notif.New(config)
     uicorner.Parent = frame_3
 
     local uipadding = Instance.new("UIPadding")
-    uipadding.PaddingBottom = UDim.new(0, 8)
-    uipadding.PaddingLeft = UDim.new(0, 12)
-    uipadding.PaddingRight = UDim.new(0, 12)
-    uipadding.PaddingTop = UDim.new(0, 8)
+    uipadding.PaddingBottom = UDim.new(0, 10)
+    uipadding.PaddingLeft = UDim.new(0, 15)
+    uipadding.PaddingRight = UDim.new(0, 15)
+    uipadding.PaddingTop = UDim.new(0, 10)
     uipadding.Parent = frame_3
 
     local uistroke = Instance.new("UIStroke")
@@ -121,14 +121,15 @@ function Notif.New(config)
 
     local inner_frame = Instance.new("Frame")
     inner_frame.BackgroundTransparency = 1
-    inner_frame.Size = UDim2.new(1, -50, 1, 0) -- Reserve space for close button
+    inner_frame.Size = UDim2.new(0, 500, 0, 0) -- Max width for text, auto height
+    inner_frame.AutomaticSize = Enum.AutomaticSize.Y
     inner_frame.Parent = frame_3
 
     local inner_layout = Instance.new("UIListLayout")
     inner_layout.FillDirection = Enum.FillDirection.Horizontal
     inner_layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
     inner_layout.VerticalAlignment = Enum.VerticalAlignment.Center
-    inner_layout.Padding = UDim.new(0, 8)
+    inner_layout.Padding = UDim.new(0, 10)
     inner_layout.Parent = inner_frame
 
     local icon_label = Instance.new("ImageLabel")
@@ -137,7 +138,7 @@ function Notif.New(config)
     icon_label.ImageRectOffset = iconOffset
     icon_label.ImageRectSize = Vector2.new(36, 36)
     icon_label.BackgroundTransparency = 1
-    icon_label.Size = UDim2.new(0, 24, 0, 24)
+    icon_label.Size = UDim2.new(0, 28, 0, 28)
     icon_label.Parent = inner_frame
 
     local text_label = Instance.new("TextLabel")
@@ -149,8 +150,7 @@ function Notif.New(config)
     text_label.TextWrapped = true
     text_label.TextXAlignment = Enum.TextXAlignment.Left
     text_label.AutomaticSize = Enum.AutomaticSize.XY
-    text_label.BackgroundTransparency = 1
-    text_label.Size = UDim2.new(0, 0, 0, 0)
+    text_label.Size = UDim2.new(0, 400, 0, 0) -- Max text width, auto height
     text_label.Parent = inner_frame
 
     local text_button = Instance.new("TextButton")
@@ -158,8 +158,8 @@ function Notif.New(config)
     text_button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     text_button.BackgroundTransparency = 0.9
     text_button.AnchorPoint = Vector2.new(1, 0.5)
-    text_button.Position = UDim2.new(1, -5, 0.5, 0)
-    text_button.Size = UDim2.new(0, 28, 0, 28)
+    text_button.Position = UDim2.new(1, -10, 0.5, 0)
+    text_button.Size = UDim2.new(0, 32, 0, 32)
     text_button.Parent = frame_3
 
     local uicorner_2 = Instance.new("UICorner")
@@ -174,14 +174,14 @@ function Notif.New(config)
     close_button.AnchorPoint = Vector2.new(0.5, 0.5)
     close_button.BackgroundTransparency = 1
     close_button.Position = UDim2.new(0.5, 0, 0.5, 0)
-    close_button.Size = UDim2.new(0, 20, 0, 20)
+    close_button.Size = UDim2.new(0, 24, 0, 24)
     close_button.ZIndex = 2
     close_button.Parent = text_button
 
     -- Animations
     local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     TS:Create(frame_3, tweenInfo, { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
-    TS:Create(frame_2, tweenInfo, { Size = UDim2.new(0, 300, 0, 40) }):Play()
+    TS:Create(frame_2, tweenInfo, { Size = UDim2.new(0, 500, 0, 0) }):Play() -- Match inner_frame width
     TS:Create(frame_3, tweenInfo, { BackgroundTransparency = 0.1 }):Play()
 
     local function close_notif()
@@ -192,7 +192,7 @@ function Notif.New(config)
         TS:Create(icon_label, outTweenInfo, { ImageTransparency = 1 }):Play()
         TS:Create(frame_3, outTweenInfo, { BackgroundTransparency = 1 }):Play()
         TS:Create(uistroke, outTweenInfo, { Transparency = 1 }):Play()
-        TS:Create(frame_2, outTweenInfo, { Size = UDim2.new(0, 300, 0, 0) }):Play()
+        TS:Create(frame_2, outTweenInfo, { Size = UDim2.new(0, 500, 0, 0) }):Play()
         task.delay(0.35, function() frame_2:Destroy() end)
     end
 
