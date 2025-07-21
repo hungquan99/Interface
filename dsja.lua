@@ -55,8 +55,16 @@ function Notif.New(text, timee, type)
         info    = Color3.fromRGB(33, 150, 243),    -- Blue
     }
 
+    local typeIcons = {
+        success = "rbxassetid://10709790387",
+        warning = "rbxassetid://10709753149",
+        fail    = "rbxassetid://10747383819",
+        info    = "rbxassetid://10723415903",
+    }
+
     local baseColor = Color3.fromRGB(36, 36, 36)
     local accentColor = typeColors[type] or baseColor
+    local iconAsset = typeIcons[type]
 
     local frame_3 = Instance.new("Frame")
     frame_3.AnchorPoint = Vector2.new(0.5, 1)
@@ -85,6 +93,16 @@ function Notif.New(text, timee, type)
     uistroke.Color = accentColor
     uistroke.Parent = frame_3
 
+    if iconAsset then
+        local icon = Instance.new("ImageLabel")
+        icon.Image = iconAsset
+        icon.BackgroundTransparency = 1
+        icon.Size = UDim2.new(0, 20, 0, 20)
+        icon.Position = UDim2.new(0, 5, 0.5, -10)
+        icon.AnchorPoint = Vector2.new(0, 0.5)
+        icon.Parent = frame_3
+    end
+
     local text_label = Instance.new("TextLabel")
     text_label.Font = Enum.Font.Gotham
     text_label.Text = text
@@ -96,6 +114,7 @@ function Notif.New(text, timee, type)
     text_label.BorderColor3 = Color3.new(0, 0, 0)
     text_label.BorderSizePixel = 0
     text_label.Size = UDim2.new(0, 0, 0, 24)
+    text_label.Position = UDim2.new(0, iconAsset and 30 or 5, 0, 3)
     text_label.Visible = true
     text_label.Parent = frame_3
 
