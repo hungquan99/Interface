@@ -49,10 +49,10 @@ function Notif.New(text, timee, type)
     frame_2.Parent = frame
 
     local typeColors = {
-        success = Color3.fromRGB(76, 175, 80),     -- Green
-        warning = Color3.fromRGB(255, 193, 7),     -- Yellow
-        fail    = Color3.fromRGB(244, 67, 54),     -- Red
-        info    = Color3.fromRGB(33, 150, 243),    -- Blue
+        success = Color3.fromRGB(76, 175, 80), -- green
+        warning = Color3.fromRGB(255, 193, 7), -- yellow
+        fail    = Color3.fromRGB(244, 67, 54), -- red
+        info    = Color3.fromRGB(33, 150, 243), -- blue
     }
 
     local typeIcons = {
