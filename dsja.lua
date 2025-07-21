@@ -91,6 +91,7 @@ function Notif.New(text, timee, type)
     local uistroke = Instance.new("UIStroke")
     uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     uistroke.Color = accentColor
+    uistroke.Thickness = 1
     uistroke.Parent = frame_3
 
     local frame_3_layout = Instance.new("UIListLayout")
@@ -161,7 +162,7 @@ function Notif.New(text, timee, type)
     image_button.Parent = text_button
 
     -- Enhanced appearance animations
-    TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
+ StandBy   TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
     TS:Create(frame_2, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Size = UDim2.new(0, 100, 0, 35) }):Play()
 
     local function close_notif()
@@ -171,20 +172,36 @@ function Notif.New(text, timee, type)
         if icon then
             TS:Create(icon, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { ImageTransparency = 1 }):Play()
         end
-        task.wait(0.17)
-        TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 1, 60) }):Play()
-        TS:Create(uistroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+        task.wait(0.15)
+        TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 1, 60), Size = UDim2.new(0, 0, 0, 30) }):Play()
+        TS:Create(uistroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Transparency = 1, Thickness = 1 }):Play()
         task.wait(0.05)
         TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Size = UDim2.new(0, 100, 0, 0) }):Play()
         task.wait(0.2)
         frame_2:Destroy()
     end
 
+    -- Notification hover animation
+    frame_3.MouseEnter:Connect(function()
+        TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
+            { Size = UDim2.new(0, 0, 0, 31.5), BackgroundColor3 = Color3.fromRGB(50, 50, 50) }):Play()
+        TS:Create(uistroke, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
+            { Thickness = 2 }):Play()
+    end)
+
+    frame_3.MouseLeave:Connect(function()
+        TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+            { Size = UDim2.new(0, 0, 0, 30), BackgroundColor3 = baseColor }):Play()
+        TS:Create(uistroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+            { Thickness = 1 }):Play()
+    end)
+
+    -- Close button hover animation
     text_button.MouseEnter:Connect(function()
-        TS:Create(text_button, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
+        TS:Create(text_button, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
             { BackgroundTransparency = 0.7, BackgroundColor3 = Color3.fromRGB(80, 80, 80) }):Play()
-        TS:Create(image_button, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
-            { ImageColor3 = Color3.new(0.890196, 0.054902, 0.054902), Size = UDim2.new(0, 20, 0, 20), Rotation = 45 }):Play()
+        TS:Create(image_button, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+            { ImageColor3 = Color3.new(0.890196, 0.054902, 0.054902), Size = UDim2.new(0, 19, 0, 19), Rotation = 30 }):Play()
     end)
 
     text_button.MouseLeave:Connect(function()
@@ -203,6 +220,7 @@ function Notif.New(text, timee, type)
 
     text_button.MouseButton1Click:Connect(on_click)
     image_button.MouseButton1Click:Connect(on_click)
+    task.wait(0.1)
     task.delay(tonumber(timee) and timee or 10, close_notif)
 end
 
