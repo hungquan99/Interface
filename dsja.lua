@@ -49,10 +49,10 @@ function Notif.New(text, timee, type)
     frame_2.Parent = frame
 
     local typeColors = {
-        success = Color3.fromRGB(76, 175, 80), -- green
-        warning = Color3.fromRGB(255, 193, 7), -- yellow
-        fail    = Color3.fromRGB(244, 67, 54), -- red
-        info    = Color3.fromRGB(33, 150, 243), -- blue
+        success = Color3.fromRGB(76, 175, 80),     -- Green
+        warning = Color3.fromRGB(255, 193, 7),     -- Yellow
+        fail    = Color3.fromRGB(244, 67, 54),     -- Red
+        info    = Color3.fromRGB(33, 150, 243),    -- Blue
     }
 
     local typeIcons = {
@@ -101,8 +101,9 @@ function Notif.New(text, timee, type)
     frame_3_layout.Padding = UDim.new(0, 8)
     frame_3_layout.Parent = frame_3
 
+    local icon
     if iconAsset then
-        local icon = Instance.new("ImageLabel")
+        icon = Instance.new("ImageLabel")
         icon.Image = iconAsset
         icon.BackgroundTransparency = 1
         icon.Size = UDim2.new(0, 20, 0, 20)
@@ -134,7 +135,7 @@ function Notif.New(text, timee, type)
     text_button.Text = ""
     text_button.TextColor3 = Color3.new(0, 0, 0)
     text_button.TextSize = 14
-    text_button.BackgroundColor3 = Color3.new(0, 0, 0)
+    text_button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     text_button.BackgroundTransparency = 1
     text_button.BorderColor3 = Color3.new(0, 0, 0)
     text_button.BorderSizePixel = 0
@@ -159,36 +160,49 @@ function Notif.New(text, timee, type)
     image_button.ZIndex = 2
     image_button.Parent = text_button
 
-    TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
-    TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 100, 0, 35) }):Play()
+    -- Enhanced appearance animations
+    TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
+    TS:Create(frame_2, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Size = UDim2.new(0, 100, 0, 35) }):Play()
 
     local function close_notif()
-        TS:Create(image_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { ImageTransparency = 1 }):Play()
-        TS:Create(text_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-        TS:Create(text_label, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { TextTransparency = 1 }):Play()
+        TS:Create(image_button, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { ImageTransparency = 1, Size = UDim2.new(0, 16, 0, 16) }):Play()
+        TS:Create(text_button, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { BackgroundTransparency = 1, Size = UDim2.new(0, 22, 0, 22) }):Play()
+        TS:Create(text_label, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { TextTransparency = 1 }):Play()
+        if icon then
+            TS:Create(icon, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { ImageTransparency = 1 }):Play()
+        end
         task.wait(0.17)
-        TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-        TS:Create(uistroke, TweenInfo.new(0.24, Enum.EasingStyle.Quint), { Transparency = 1 }):Play()
+        TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 1, 60) }):Play()
+        TS:Create(uistroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Transparency = 1 }):Play()
         task.wait(0.05)
-        TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 100, 0, 0) }):Play()
+        TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Size = UDim2.new(0, 100, 0, 0) }):Play()
         task.wait(0.2)
         frame_2:Destroy()
     end
 
     text_button.MouseEnter:Connect(function()
-        TS:Create(text_button, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 0.8 }):Play()
-        TS:Create(image_button, TweenInfo.new(0.3, Enum.EasingStyle.Quint),
-            { ImageColor3 = Color3.new(0.890196, 0.054902, 0.054902) }):Play()
+        TS:Create(text_button, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
+            { BackgroundTransparency = 0.7, BackgroundColor3 = Color3.fromRGB(80, 80, 80) }):Play()
+        TS:Create(image_button, TweenInfo.new(0.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), 
+            { ImageColor3 = Color3.new(0.890196, 0.054902, 0.054902), Size = UDim2.new(0, 20, 0, 20), Rotation = 45 }):Play()
     end)
 
     text_button.MouseLeave:Connect(function()
-        TS:Create(text_button, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-        TS:Create(image_button, TweenInfo.new(0.3, Enum.EasingStyle.Quint),
-            { ImageColor3 = Color3.new(0.784314, 0.784314, 0.784314) }):Play()
+        TS:Create(text_button, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+            { BackgroundTransparency = 1, BackgroundColor3 = Color3.fromRGB(60, 60, 60) }):Play()
+        TS:Create(image_button, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+            { ImageColor3 = Color3.new(0.784314, 0.784314, 0.784314), Size = UDim2.new(0, 18, 0, 18), Rotation = 0 }):Play()
     end)
 
-    text_button.MouseButton1Click:Connect(close_notif)
-    image_button.MouseButton1Click:Connect(close_notif)
+    local function on_click()
+        TS:Create(image_button, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Size = UDim2.new(0, 16, 0, 16) }):Play()
+        TS:Create(text_button, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { Size = UDim2.new(0, 22, 0, 22) }):Play()
+        task.wait(0.1)
+        close_notif()
+    end
+
+    text_button.MouseButton1Click:Connect(on_click)
+    image_button.MouseButton1Click:Connect(on_click)
     task.delay(tonumber(timee) and timee or 10, close_notif)
 end
 
