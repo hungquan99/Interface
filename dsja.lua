@@ -83,8 +83,8 @@ function Notif.New(text, timee, type)
 
     local uipadding = Instance.new("UIPadding")
     uipadding.PaddingBottom = UDim.new(0, 3)
-    uipadding.PaddingLeft = UDim.new(0, 3)
-    uipadding.PaddingRight = UDim.new(0, 3)
+    uipadding.PaddingLeft = UDim.new(0, 8)
+    uipadding.PaddingRight = UDim.new(0, 8)
     uipadding.PaddingTop = UDim.new(0, 3)
     uipadding.Parent = frame_3
 
@@ -93,13 +93,20 @@ function Notif.New(text, timee, type)
     uistroke.Color = accentColor
     uistroke.Parent = frame_3
 
+    local frame_3_layout = Instance.new("UIListLayout")
+    frame_3_layout.FillDirection = Enum.FillDirection.Horizontal
+    frame_3_layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    frame_3_layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    frame_3_layout.SortOrder = Enum.SortOrder.LayoutOrder
+    frame_3_layout.Padding = UDim.new(0, 8)
+    frame_3_layout.Parent = frame_3
+
     if iconAsset then
         local icon = Instance.new("ImageLabel")
         icon.Image = iconAsset
         icon.BackgroundTransparency = 1
         icon.Size = UDim2.new(0, 20, 0, 20)
-        icon.Position = UDim2.new(0, 8, 0.5, 0)
-        icon.AnchorPoint = Vector2.new(0, 0.5)
+        icon.LayoutOrder = 1
         icon.Parent = frame_3
     end
 
@@ -114,14 +121,12 @@ function Notif.New(text, timee, type)
     text_label.BorderColor3 = Color3.new(0, 0, 0)
     text_label.BorderSizePixel = 0
     text_label.Size = UDim2.new(0, 0, 0, 24)
-    text_label.Position = UDim2.new(0, iconAsset and 35 or 8, 0.5, 0)
-    text_label.AnchorPoint = Vector2.new(0, 0.5)
-    text_label.Visible = true
+    text_label.LayoutOrder = 2
     text_label.Parent = frame_3
 
     local uipadding_2 = Instance.new("UIPadding")
-    uipadding_2.PaddingLeft = UDim.new(0, 5)
-    uipadding_2.PaddingRight = UDim.new(0, 8)
+    uipadding_2.PaddingLeft = UDim.new(0, 0)
+    uipadding_2.PaddingRight = UDim.new(0, 0)
     uipadding_2.Parent = text_label
 
     local text_button = Instance.new("TextButton")
@@ -129,14 +134,12 @@ function Notif.New(text, timee, type)
     text_button.Text = ""
     text_button.TextColor3 = Color3.new(0, 0, 0)
     text_button.TextSize = 14
-    text_button.AnchorPoint = Vector2.new(1, 0.5)
     text_button.BackgroundColor3 = Color3.new(0, 0, 0)
     text_button.BackgroundTransparency = 1
     text_button.BorderColor3 = Color3.new(0, 0, 0)
     text_button.BorderSizePixel = 0
-    text_button.Position = UDim2.new(1, -8, 0.5, 0)
     text_button.Size = UDim2.new(0, 24, 0, 24)
-    text_button.Visible = true
+    text_button.LayoutOrder = 3
     text_button.Parent = frame_3
 
     local uicorner_2 = Instance.new("UICorner")
@@ -150,7 +153,6 @@ function Notif.New(text, timee, type)
     image_button.ImageRectSize = Vector2.new(36, 36)
     image_button.AnchorPoint = Vector2.new(0.5, 0.5)
     image_button.BackgroundTransparency = 1
-    image_button.LayoutOrder = 3
     image_button.Position = UDim2.new(0.5, 0, 0.5, 0)
     image_button.Size = UDim2.new(0, 18, 0, 18)
     image_button.Visible = true
