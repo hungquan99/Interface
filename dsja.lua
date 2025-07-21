@@ -22,12 +22,12 @@ local screen_gui = Instance.new("ScreenGui")
 Hide_UI(screen_gui)
 
 local frame = Instance.new("Frame")
-frame.AnchorPoint = Vector2.new(0.5, 0.949999988079071)
+frame.AnchorPoint = Vector2.new(0.5, 0.95)
 frame.BackgroundColor3 = Color3.new(1, 1, 1)
 frame.BackgroundTransparency = 1
 frame.BorderColor3 = Color3.new(0, 0, 0)
 frame.BorderSizePixel = 0
-frame.Position = UDim2.new(0.5, 0, 0.954999983, 0)
+frame.Position = UDim2.new(0.5, 0, 0.955, 0)
 frame.Size = UDim2.new(0, 100, 0, 100)
 frame.Visible = true
 frame.Parent = screen_gui
@@ -98,7 +98,7 @@ function Notif.New(text, timee, type)
         icon.Image = iconAsset
         icon.BackgroundTransparency = 1
         icon.Size = UDim2.new(0, 20, 0, 20)
-        icon.Position = UDim2.new(0, 5, 0.5, -10)
+        icon.Position = UDim2.new(0, 8, 0.5, 0)
         icon.AnchorPoint = Vector2.new(0, 0.5)
         icon.Parent = frame_3
     end
@@ -114,13 +114,14 @@ function Notif.New(text, timee, type)
     text_label.BorderColor3 = Color3.new(0, 0, 0)
     text_label.BorderSizePixel = 0
     text_label.Size = UDim2.new(0, 0, 0, 24)
-    text_label.Position = UDim2.new(0, iconAsset and 30 or 5, 0, 3)
+    text_label.Position = UDim2.new(0, iconAsset and 35 or 8, 0.5, 0)
+    text_label.AnchorPoint = Vector2.new(0, 0.5)
     text_label.Visible = true
     text_label.Parent = frame_3
 
     local uipadding_2 = Instance.new("UIPadding")
     uipadding_2.PaddingLeft = UDim.new(0, 5)
-    uipadding_2.PaddingRight = UDim.new(0, 30)
+    uipadding_2.PaddingRight = UDim.new(0, 8)
     uipadding_2.Parent = text_label
 
     local text_button = Instance.new("TextButton")
@@ -133,7 +134,7 @@ function Notif.New(text, timee, type)
     text_button.BackgroundTransparency = 1
     text_button.BorderColor3 = Color3.new(0, 0, 0)
     text_button.BorderSizePixel = 0
-    text_button.Position = UDim2.new(1, 0, 0.5, 0)
+    text_button.Position = UDim2.new(1, -8, 0.5, 0)
     text_button.Size = UDim2.new(0, 24, 0, 24)
     text_button.Visible = true
     text_button.Parent = frame_3
@@ -163,12 +164,12 @@ function Notif.New(text, timee, type)
         TS:Create(image_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { ImageTransparency = 1 }):Play()
         TS:Create(text_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
         TS:Create(text_label, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { TextTransparency = 1 }):Play()
-        task.wait(.17)
+        task.wait(0.17)
         TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
         TS:Create(uistroke, TweenInfo.new(0.24, Enum.EasingStyle.Quint), { Transparency = 1 }):Play()
-        task.wait(.05)
+        task.wait(0.05)
         TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 100, 0, 0) }):Play()
-        task.wait(.2)
+        task.wait(0.2)
         frame_2:Destroy()
     end
 
