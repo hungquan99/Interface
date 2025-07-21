@@ -38,39 +38,7 @@ uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
 uilist_layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 uilist_layout.Parent = frame
 
--- Notification type configurations
-local NOTIF_TYPES = {
-    Success = {
-        BackgroundColor = Color3.fromRGB(40, 167, 69),
-        TextColor = Color3.fromRGB(220, 255, 220),
-        IconOffset = Vector2.new(524, 4) -- Checkmark icon
-    },
-    Fail = {
-        BackgroundColor = Color3.fromRGB(220, 53, 69),
-        TextColor = Color3.fromRGB(255, 220, 220),
-        IconOffset = Vector2.new(84, 84) -- Cross icon
-    },
-    Warning = {
-        BackgroundColor = Color3.fromRGB(255, 193, 7),
-        TextColor = Color3.fromRGB(255, 255, 220),
-        IconOffset = Vector2.new(404, 324) -- Warning icon
-    },
-    Info = {
-        BackgroundColor = Color3.fromRGB(0, 123, 255),
-        TextColor = Color3.fromRGB(220, 220, 255),
-        IconOffset = Vector2.new(44, 724) -- Info icon
-    },
-    Default = {
-        BackgroundColor = Color3.new(0.141176, 0.141176, 0.141176),
-        TextColor = Color3.new(0.784314, 0.784314, 0.784314),
-        IconOffset = Vector2.new(924, 724) -- Default close icon
-    }
-}
-
 function Notif.New(text, timee, type)
-    local notifType = type and NOTIF_TYPES[type] and type or "Default"
-    local typeConfig = NOTIF_TYPES[notifType]
-
     local frame_2 = Instance.new("Frame")
     frame_2.BackgroundColor3 = Color3.new(1, 1, 1)
     frame_2.BorderColor3 = Color3.new(0, 0, 0)
@@ -80,12 +48,21 @@ function Notif.New(text, timee, type)
     frame_2.Visible = true
     frame_2.Parent = frame
 
-    -- Main Notification Frame
+    local typeColors = {
+        success = Color3.fromRGB(76, 175, 80),     -- Green
+        warning = Color3.fromRGB(255, 193, 7),     -- Yellow
+        fail    = Color3.fromRGB(244, 67, 54),     -- Red
+        info    = Color3.fromRGB(33, 150, 243),    -- Blue
+    }
+
+    local baseColor = Color3.fromRGB(36, 36, 36)
+    local accentColor = typeColors[type] or baseColor
+
     local frame_3 = Instance.new("Frame")
     frame_3.AnchorPoint = Vector2.new(0.5, 1)
     frame_3.AutomaticSize = Enum.AutomaticSize.X
-    frame_3.BackgroundColor3 = typeConfig.BackgroundColor
-    frame_3.BackgroundTransparency = 0.20000000298023224
+    frame_3.BackgroundColor3 = baseColor
+    frame_3.BackgroundTransparency = 0.2
     frame_3.BorderColor3 = Color3.new(0, 0, 0)
     frame_3.Position = UDim2.new(0.5, 0, 1, 60)
     frame_3.Size = UDim2.new(0, 0, 0, 30)
@@ -105,16 +82,15 @@ function Notif.New(text, timee, type)
 
     local uistroke = Instance.new("UIStroke")
     uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    uistroke.Color = Color3.new(0.0313726, 0.0313726, 0.0313726)
+    uistroke.Color = accentColor
     uistroke.Parent = frame_3
 
     local text_label = Instance.new("TextLabel")
     text_label.Font = Enum.Font.Gotham
     text_label.Text = text
-    text_label.TextColor3 = typeConfig.TextColor
+    text_label.TextColor3 = Color3.new(0.784314, 0.784314, 0.784314)
     text_label.TextSize = 14
-    text_label.AutomaticSize = Enumрести
-
+    text_label.AutomaticSize = Enum.AutomaticSize.X
     text_label.BackgroundColor3 = Color3.new(1, 1, 1)
     text_label.BackgroundTransparency = 1
     text_label.BorderColor3 = Color3.new(0, 0, 0)
@@ -149,8 +125,8 @@ function Notif.New(text, timee, type)
 
     local image_button = Instance.new("ImageButton")
     image_button.Image = "rbxassetid://3926305904"
-    image_button.ImageColor3 = typeConfig.TextColor
-    image_button.ImageRectOffset = typeConfig.IconOffset
+    image_button.ImageColor3 = Color3.new(0.784314, 0.784314, 0.784314)
+    image_button.ImageRectOffset = Vector2.new(924, 724)
     image_button.ImageRectSize = Vector2.new(36, 36)
     image_button.AnchorPoint = Vector2.new(0.5, 0.5)
     image_button.BackgroundTransparency = 1
@@ -161,11 +137,9 @@ function Notif.New(text, timee, type)
     image_button.ZIndex = 2
     image_button.Parent = text_button
 
-    --Animations
     TS:Create(frame_3, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
     TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 100, 0, 35) }):Play()
 
-    -- Close Button
     local function close_notif()
         TS:Create(image_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { ImageTransparency = 1 }):Play()
         TS:Create(text_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
@@ -178,6 +152,7 @@ function Notif.New(text, timee, type)
         task.wait(.2)
         frame_2:Destroy()
     end
+
     text_button.MouseEnter:Connect(function()
         TS:Create(text_button, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 0.8 }):Play()
         TS:Create(image_button, TweenInfo.new(0.3, Enum.EasingStyle.Quint),
@@ -187,21 +162,10 @@ function Notif.New(text, timee, type)
     text_button.MouseLeave:Connect(function()
         TS:Create(text_button, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
         TS:Create(image_button, TweenInfo.new(0.3, Enum.EasingStyle.Quint),
-            { ImageColor3 = typeConfig.TextColor }):Play()
+            { ImageColor3 = Color3.new(0.784314, 0.784314, 0.784314) }):Play()
     end)
 
-    text_button.MouseButton1Click:Connect(function()
-        TS:Create(image_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { ImageTransparency = 1 }):Play()
-        TS:Create(text_button, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-        TS:Create(text_label, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { TextTransparency = 1 }):Play()
-        task.wait(.17)
-        TS:Create(frame_3, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-        TS:Create(uistroke, TweenInfo.new(0.24, Enum.EasingStyle.Quint), { Transparency = 1 }):Play()
-        task.wait(.05)
-        TS:Create(frame_2, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 100, 0, 0) }):Play()
-        task.wait(.2)
-        frame_2:Destroy()
-    end)
+    text_button.MouseButton1Click:Connect(close_notif)
     image_button.MouseButton1Click:Connect(close_notif)
     task.delay(tonumber(timee) and timee or 10, close_notif)
 end
