@@ -19,6 +19,11 @@ local function Hide_UI(gui)
 end
 
 local screen_gui = Instance.new("ScreenGui")
+screen_gui.Name = "TopMostNotifyUI"
+screen_gui.IgnoreGuiInset = true
+screen_gui.ResetOnSpawn = false
+screen_gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+screen_gui.DisplayOrder = 999999999
 Hide_UI(screen_gui)
 
 local frame = Instance.new("Frame")
@@ -30,6 +35,7 @@ frame.BorderSizePixel = 0
 frame.Position = UDim2.new(0.5, 0, 0.955, 0)
 frame.Size = UDim2.new(0, 100, 0, 100)
 frame.Visible = true
+frame.ZIndex = 999999
 frame.Parent = screen_gui
 
 local uilist_layout = Instance.new("UIListLayout")
