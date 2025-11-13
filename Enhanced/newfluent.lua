@@ -6944,5 +6944,2816 @@ if RunService:IsStudio() then
 	listfiles = function (...) return {...} end;
 end
 
+local SaveManager = {} do
+
+
+
+	SaveManager.Folder = "FluentSettings"
+
+
+	SaveManager.Ignore = {}
+
+
+	SaveManager.Parser = {
+
+
+		Toggle = {
+
+
+			Save = function(idx, object) 
+
+
+				return { type = "Toggle", idx = idx, value = object.Value } 
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] then 
+
+
+					SaveManager.Options[idx]:SetValue(data.value)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+		Slider = {
+
+
+			Save = function(idx, object)
+
+
+				return { type = "Slider", idx = idx, value = tostring(object.Value) }
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] then 
+
+
+					SaveManager.Options[idx]:SetValue(data.value)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+		Dropdown = {
+
+
+			Save = function(idx, object)
+
+
+				return { type = "Dropdown", idx = idx, value = object.Value, mutli = object.Multi }
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] then 
+
+
+					SaveManager.Options[idx]:SetValue(data.value)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+		Colorpicker = {
+
+
+			Save = function(idx, object)
+
+
+				return { type = "Colorpicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency }
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] then 
+
+
+					SaveManager.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+		Keybind = {
+
+
+			Save = function(idx, object)
+
+
+				return { type = "Keybind", idx = idx, mode = object.Mode, key = object.Value }
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] then 
+
+
+					SaveManager.Options[idx]:SetValue(data.key, data.mode)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+
+
+
+		Input = {
+
+
+			Save = function(idx, object)
+
+
+				return { type = "Input", idx = idx, text = object.Value }
+
+
+			end,
+
+
+			Load = function(idx, data)
+
+
+				if SaveManager.Options[idx] and type(data.text) == "string" then
+
+
+					SaveManager.Options[idx]:SetValue(data.text)
+
+
+				end
+
+
+			end,
+
+
+		},
+
+
+	}
+
+
+
+
+
+	function SaveManager:SetIgnoreIndexes(list)
+
+
+		for _, key in next, list do
+
+
+			self.Ignore[key] = true
+
+
+		end
+
+
+	end
+
+
+	function SaveManager:SetFolder(folder)
+
+
+		self.Folder = folder;
+
+
+		self:BuildFolderTree()
+
+
+	end
+
+
+
+
+
+	function SaveManager:Save(name)
+
+
+		if (not name) then
+
+
+			return false, "no config file is selected"
+
+
+		end
+
+
+
+
+
+		local fullPath = self.Folder .. "/" .. name .. ".json"
+
+
+
+
+
+		local data = {
+
+
+			objects = {}
+
+
+		}
+
+
+
+
+
+
+
+
+		for idx, option in next, SaveManager.Options do
+
+
+			if self.Parser[option.Type] and not self.Ignore[idx] then
+
+
+				table.insert(data.objects, self.Parser[option.Type].Save(idx, option))
+
+
+			end
+
+
+		end	
+
+
+
+
+
+		local success, encoded = pcall(httpService.JSONEncode, httpService, data)
+
+
+		if not success then
+
+
+			return false, "failed to encode data"
+
+
+		end
+
+
+
+
+
+		writefile(fullPath, encoded)
+
+
+		return true
+
+
+	end
+
+
+
+
+
+	if not RunService:IsStudio() then
+
+
+		function SaveManager:Load(name)
+
+
+			if (not name) then
+
+
+				return false, "no config file is selected"
+
+
+			end
+
+
+
+
+
+			local file = self.Folder .. "/" .. name .. ".json"
+
+
+			if not isfile(file) then return false, "Create Config Save File" end
+
+
+
+
+
+			local success, decoded = pcall(httpService.JSONDecode, httpService, readfile(file))
+
+
+			if not success then return false, "decode error" end
+
+
+
+
+
+			for _, option in next, decoded.objects do
+
+
+				if self.Parser[option.type] and not self.Ignore[option.idx] then
+
+
+					task.spawn(function() self.Parser[option.type].Load(option.idx, option) end)
+
+
+				end
+
+
+			end
+
+
+
+
+
+			Fluent.SettingLoaded = true
+
+
+
+
+
+			return true, decoded
+
+
+		end
+
+
+	end
+
+
+
+
+
+	function SaveManager:IgnoreThemeSettings()
+
+
+		self:SetIgnoreIndexes({ 
+
+
+			"InterfaceTheme", "AcrylicToggle", "TransparentToggle", "MenuKeybind"
+
+
+		})
+
+
+	end
+
+
+
+
+
+	function SaveManager:BuildFolderTree()
+
+
+		local paths = {
+
+
+			self.Folder,
+
+
+			self.Folder .. "/"
+
+
+		}
+
+
+
+
+
+		for i = 1, #paths do
+
+
+			local str = paths[i]
+
+
+			if not isfolder(str) then
+
+
+				makefolder(str)
+
+
+			end
+
+
+		end
+
+
+	end
+
+
+
+
+
+	function SaveManager:RefreshConfigList()
+
+
+		local list = listfiles(self.Folder .. "/")
+
+
+
+
+
+		local out = {}
+
+
+		for i = 1, #list do
+
+
+			local file = list[i]
+
+
+			if file:sub(-5) == ".json" then
+
+
+				local pos = file:find(".json", 1, true)
+
+
+				local start = pos
+
+
+
+
+
+				local char = file:sub(pos, pos)
+
+
+				while char ~= "/" and char ~= "\\" and char ~= "" do
+
+
+					pos = pos - 1
+
+
+					char = file:sub(pos, pos)
+
+
+				end
+
+
+
+
+
+				if char == "/" or char == "\\" then
+
+
+					local name = file:sub(pos + 1, start - 1)
+
+
+					if name ~= "options" then
+
+
+						table.insert(out, name)
+
+
+					end
+
+
+				end
+
+
+			end
+
+
+		end
+
+
+
+
+
+		return out
+
+
+	end
+
+
+
+
+
+	function SaveManager:SetLibrary(library)
+
+
+		self.Library = library
+
+
+		self.Options = library.Options
+
+
+	end
+
+
+
+
+
+	if not RunService:IsStudio() then
+
+
+		function SaveManager:LoadAutoloadConfig()
+
+
+			if isfile(self.Folder .. "/autoload.txt") then
+
+
+				local name = readfile(self.Folder .. "/autoload.txt")
+
+
+
+
+
+				local success, err = self:Load(name)
+
+
+				if not success then
+
+
+					return self.Library:Notify({
+
+
+						Title = "Interface",
+
+
+						Content = "Config loader",
+
+
+						SubContent = "Failed to load autoload config: " .. err,
+
+
+						Duration = 7
+
+
+					})
+
+
+				end
+
+
+
+
+
+				self.Library:Notify({
+
+
+					Title = "Interface",
+
+
+					Content = "Config loader",
+
+
+					SubContent = string.format("Auto loaded config %q", name),
+
+
+					Duration = 7
+
+
+				})
+
+
+			end
+
+
+		end
+
+
+	end
+
+
+
+
+
+	function SaveManager:BuildConfigSection(tab)
+
+
+		assert(self.Library, "Must set SaveManager.Library")
+
+
+
+
+
+		local section = tab:AddSection("Configuration", "settings")
+
+
+
+
+
+		section:AddInput("SaveManager_ConfigName",    { Title = "Config name" })
+
+
+		section:AddDropdown("SaveManager_ConfigList", { Title = "Config list", Values = self:RefreshConfigList(), AllowNull = true })
+
+
+
+
+
+		section:AddButton({
+
+
+			Title = "Create config",
+
+
+			Callback = function()
+
+
+				local name = SaveManager.Options.SaveManager_ConfigName.Value
+
+
+
+
+
+				if name:gsub(" ", "") == "" then 
+
+
+					return self.Library:Notify({
+
+
+						Title = "Interface",
+
+
+						Content = "Config loader",
+
+
+						SubContent = "Invalid config name (empty)",
+
+
+						Duration = 7
+
+
+					})
+
+
+				end
+
+
+
+
+
+				local success, err = self:Save(name)
+
+
+				if not success then
+
+
+					return self.Library:Notify({
+
+
+						Title = "Interface",
+
+
+						Content = "Config loader",
+
+
+						SubContent = "Failed to save config: " .. err,
+
+
+						Duration = 7
+
+
+					})
+
+
+				end
+
+
+
+
+
+				self.Library:Notify({
+
+
+					Title = "Interface",
+
+
+					Content = "Config loader",
+
+
+					SubContent = string.format("Created config %q", name),
+
+
+					Duration = 7
+
+
+				})
+
+
+
+
+
+				SaveManager.Options.SaveManager_ConfigList:SetValues(self:RefreshConfigList())
+
+
+				SaveManager.Options.SaveManager_ConfigList:SetValue(nil)
+
+
+			end
+
+
+		})
+
+
+
+
+
+		section:AddButton({Title = "Load config", Callback = function()
+
+
+			local name = SaveManager.Options.SaveManager_ConfigList.Value
+
+
+
+
+
+			local success, err = self:Load(name)
+
+
+			if not success then
+
+
+				return self.Library:Notify({
+
+
+					Title = "Interface",
+
+
+					Content = "Config loader",
+
+
+					SubContent = "Failed to load config: " .. err,
+
+
+					Duration = 7
+
+
+				})
+
+
+			end
+
+
+
+
+
+			self.Library:Notify({
+
+
+				Title = "Interface",
+
+
+				Content = "Config loader",
+
+
+				SubContent = string.format("Loaded config %q", name),
+
+
+				Duration = 7
+
+
+			})
+
+
+		end})
+
+
+
+
+
+		section:AddButton({Title = "Save config", Callback = function()
+
+
+			local name = SaveManager.Options.SaveManager_ConfigList.Value
+
+
+
+
+
+			local success, err = self:Save(name)
+
+
+			if not success then
+
+
+				return self.Library:Notify({
+
+
+					Title = "Interface",
+
+
+					Content = "Config loader",
+
+
+					SubContent = "Failed to overwrite config: " .. err,
+
+
+					Duration = 7
+
+
+				})
+
+
+			end
+
+
+
+
+
+			self.Library:Notify({
+
+
+				Title = "Interface",
+
+
+				Content = "Config loader",
+
+
+				SubContent = string.format("Overwrote config %q", name),
+
+
+				Duration = 7
+
+
+			})
+
+
+		end})
+
+
+
+
+
+		section:AddButton({Title = "Refresh list", Callback = function()
+
+
+			SaveManager.Options.SaveManager_ConfigList:SetValues(self:RefreshConfigList())
+
+
+			SaveManager.Options.SaveManager_ConfigList:SetValue(nil)
+
+
+		end})
+
+
+
+
+
+		local AutoloadButton
+
+
+		AutoloadButton = section:AddButton({Title = "Set as autoload", Description = "Current autoload config: none", Callback = function()
+
+
+			local name = SaveManager.Options.SaveManager_ConfigList.Value
+
+
+			writefile(self.Folder .. "/autoload.txt", name)
+
+
+			AutoloadButton:SetDesc("Current autoload config: " .. name)
+
+
+			self.Library:Notify({
+
+
+				Title = "Interface",
+
+
+				Content = "Config loader",
+
+
+				SubContent = string.format("Set %q to auto load", name),
+
+
+				Duration = 7
+
+
+			})
+
+
+		end})
+
+
+
+
+
+		if isfile(self.Folder .. "/autoload.txt") then
+
+
+			local name = readfile(self.Folder .. "/autoload.txt")
+
+
+			AutoloadButton:SetDesc("Current autoload config: " .. name)
+
+
+		end
+
+
+
+
+
+		SaveManager:SetIgnoreIndexes({ "SaveManager_ConfigList", "SaveManager_ConfigName" })
+
+
+	end
+
+
+
+
+
+	if not RunService:IsStudio() then
+
+
+		SaveManager:BuildFolderTree()
+
+
+	end
+
+
+end
+
+
+
+
+
+local InterfaceManager = {} do
+
+
+	InterfaceManager.Folder = "FluentSettings"
+
+
+	InterfaceManager.Settings = {
+
+
+		Acrylic = true,
+
+
+		Transparency = true,
+
+
+		MenuKeybind = "M"
+
+
+	}
+
+
+
+
+
+	function InterfaceManager:SetTheme(name)
+
+
+		InterfaceManager.Settings.Theme = name
+
+
+	end
+
+
+
+
+
+	function InterfaceManager:SetFolder(folder)
+
+
+		self.Folder = folder;
+
+
+		self:BuildFolderTree()
+
+
+	end
+
+
+
+
+
+	function InterfaceManager:SetLibrary(library)
+
+
+		self.Library = library
+
+
+	end
+
+
+
+
+
+	function InterfaceManager:BuildFolderTree()
+
+
+		local paths = {}
+
+
+
+
+
+		local parts = self.Folder:split("/")
+
+
+		for idx = 1, #parts do
+
+
+			paths[#paths + 1] = table.concat(parts, "/", 1, idx)
+
+
+		end
+
+
+
+
+
+		table.insert(paths, self.Folder)
+
+
+		table.insert(paths, self.Folder .. "/")
+
+
+
+
+
+		for i = 1, #paths do
+
+
+			local str = paths[i]
+
+
+			if not isfolder(str) then
+
+
+				makefolder(str)
+
+
+			end
+
+
+		end
+
+
+	end
+
+
+
+
+
+	function InterfaceManager:SaveSettings()
+
+
+		writefile(self.Folder .. "/options.json", httpService:JSONEncode(InterfaceManager.Settings))
+
+
+	end
+
+
+
+
+
+	function InterfaceManager:LoadSettings()
+
+
+		local path = self.Folder .. "/options.json"
+
+
+		if isfile(path) then
+
+
+			local data = readfile(path)
+
+
+
+
+
+			if not RunService:IsStudio() then local success, decoded = pcall(httpService.JSONDecode, httpService, data) end
+
+
+
+
+
+			if success then
+
+
+				for i, v in next, decoded do
+
+
+					InterfaceManager.Settings[i] = v
+
+
+				end
+
+
+			end
+
+
+		end
+
+
+	end
+
+
+	function InterfaceManager:BuildInterfaceSection(tab)
+
+
+		assert(self.Library, "Must set InterfaceManager.Library")
+
+
+		local Library = self.Library
+
+
+		local Settings = InterfaceManager.Settings
+
+
+
+
+
+		InterfaceManager:LoadSettings()
+
+
+
+
+
+		local section = tab:AddSection("Interface", "monitor")
+
+
+		local InterfaceTheme = section:AddDropdown("InterfaceTheme", {
+
+
+			Title = "Theme",
+
+
+			Description = "Changes the interface theme.",
+
+
+			Values = Library.Themes,
+
+
+			Default = self.Library.Theme,
+
+
+			Callback = function(Value)
+
+
+				Library:SetTheme(Value)
+
+
+				Settings.Theme = Value
+
+
+				InterfaceManager:SaveSettings()
+
+
+			end
+
+
+		})
+
+
+
+
+
+		InterfaceTheme:SetValue(Settings.Theme)
+
+
+
+
+
+		if Library.UseAcrylic and not Mobile then
+
+
+			section:AddToggle("AcrylicToggle", {
+
+
+				Title = "Acrylic",
+
+
+				Description = "The blurred background requires graphic quality 8+",
+
+
+				Default = Settings.Acrylic,
+
+
+				Callback = function(Value)
+
+
+					Library:ToggleAcrylic(Value)
+
+
+					Settings.Acrylic = Value
+
+
+					InterfaceManager:SaveSettings()
+
+
+				end
+
+
+			})
+
+
+		elseif Mobile then
+
+
+			Settings.Acrylic = false
+
+
+		end
+
+
+
+
+
+		section:AddSlider("WindowTransparency", {
+
+
+			Title = "Window Transparency",
+
+
+			Description = "Adjusts the window transparency.",
+
+
+			Default = 1,
+
+
+			Min = 0,
+
+
+			Max = 3,
+
+
+			Rounding = 1,
+
+
+			Callback = function(Value)
+
+
+				Library:SetWindowTransparency(Value)
+
+
+			end
+
+
+		})
+
+
+
+
+
+
+
+
+		local MenuKeybind = section:AddKeybind("MenuKeybind", { Title = "Minimize Bind", Default = Library.MinimizeKey.Name or Settings.MenuKeybind })
+
+
+		MenuKeybind:OnChanged(function()
+
+
+			Settings.MenuKeybind = MenuKeybind.Value
+
+
+			InterfaceManager:SaveSettings()
+
+
+		end)
+
+
+		Library.MinimizeKeybind = MenuKeybind
+
+
+	end
+
+
+end
+
+
+
+
+
+function Library:CreateWindow(Config)
+
+
+	assert(Config.Title, "Window - Missing Title")
+
+
+
+
+
+	if Library.Window then
+
+
+		print("You cannot create more than one window.")
+
+
+		return
+
+
+	end
+
+
+
+
+
+	Library.MinimizeKey = Config.MinimizeKey or Enum.KeyCode.LeftControl
+
+
+	Library.UseAcrylic = Config.Acrylic or false
+
+
+	Library.Acrylic = Config.Acrylic or false
+
+
+	Library.Theme = Config.Theme or "Dark"
+
+
+
+
+
+	if Config.Acrylic then
+
+
+		Acrylic.init()
+
+
+	end
+
+
+
+
+
+	local Icon = Config.Icon
+
+
+	if not fischbypass then 
+
+
+		if Library:GetIcon(Icon) then
+
+
+			Icon = Library:GetIcon(Icon)
+
+
+		end
+
+
+
+
+
+		if Icon == "" or Icon == nil then
+
+
+			Icon = nil
+
+
+		end
+
+
+	end
+
+
+
+
+
+	local Window = Components.Window({
+
+
+		Parent = GUI,
+
+
+		Size = Config.Size,
+
+
+		Title = Config.Title,
+
+
+		Icon = Icon,
+
+
+		SubTitle = Config.SubTitle,
+
+
+		TabWidth = Config.TabWidth,
+
+
+		Search = Config.Search,
+
+
+		UserInfoTitle = Config.UserInfoTitle,
+
+
+		UserInfo = Config.UserInfo,
+
+
+		UserInfoTop = Config.UserInfoTop,
+
+
+		UserInfoSubtitle = Config.UserInfoSubtitle,
+
+
+		UserInfoSubtitleColor = Config.UserInfoSubtitleColor,
+
+
+	})
+
+
+
+
+
+	Library.Window = Window
+
+
+	table.insert(Library.Windows, Window)
+
+
+	InterfaceManager:SetTheme(Config.Theme)
+
+
+	Library:SetTheme(Config.Theme)
+
+
+
+
+
+	return Window
+
+
+end
+
+
+
+
+
+function Library:CreateMinimizer(Config)
+
+
+	Config = Config or {}
+
+
+	if self.Minimizer and self.Minimizer.Parent then
+
+
+		return self.Minimizer
+
+
+	end
+
+
+
+
+
+	local parentGui = Library.GUI or GUI
+
+
+	if parentGui then parentGui.DisplayOrder = 1000 end
+
+
+	local isMobile = Mobile and true or false
+
+
+
+
+
+	local iconAsset = "rbxassetid://10734897102"
+
+
+	if type(Config.Icon) == "string" and Config.Icon ~= "" then
+
+
+		pcall(function()
+
+
+			local resolved = Library:GetIcon(Config.Icon)
+
+
+			if resolved then
+
+
+				iconAsset = resolved
+
+
+			elseif string.match(Config.Icon, "^rbxassetid://%d+$") then
+
+
+				iconAsset = Config.Icon
+
+
+			end
+
+
+		end)
+
+
+	end
+
+
+
+
+
+	local useAcrylic = (Config.Acrylic == true)
+
+
+
+
+
+	local cornerRadius = tonumber(Config.Corner)
+
+
+	local backgroundTransparency = (typeof(Config.Transparency) == "number") and math.clamp(Config.Transparency, 0, 1) or 0
+
+
+	local draggableWhole = (Config.Draggable == true)
+
+
+
+
+
+	local holder
+
+
+	local function createButton(isDesktop)
+
+
+		return New("TextButton", {
+
+
+			Name = "MinimizeButton",
+
+
+			Size = UDim2.new(1, 0, 1, 0),
+
+
+			BorderSizePixel = 0,
+
+
+			BackgroundTransparency = backgroundTransparency or 0,
+
+
+			AutoButtonColor = true,
+
+
+			ThemeTag = {
+
+
+				BackgroundColor3 = "Element",
+
+
+			},
+
+
+		}, {
+
+
+			New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) }),
+
+
+			New("UIStroke", {
+
+
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+
+
+				Transparency = isDesktop and 0.6 or 0.7,
+
+
+				Thickness = isDesktop and 2 or 1.5,
+
+
+				ThemeTag = {
+
+
+					Color = "ElementBorder",
+
+
+				},
+
+
+			}),
+
+
+			New("ImageLabel", {
+
+
+				Name = "Icon",
+
+
+				Image = iconAsset,
+
+
+				Size = UDim2.new(0.8, 0, 0.8, 0),
+
+
+				Position = UDim2.new(0.5, 0, 0.5, 0),
+
+
+				AnchorPoint = Vector2.new(0.5, 0.5),
+
+
+				BackgroundTransparency = 1,
+
+
+				ThemeTag = {
+
+
+					ImageColor3 = "Text",
+
+
+				},
+
+
+			}, {
+
+
+				New("UIAspectRatioConstraint", { AspectRatio = 1, AspectType = Enum.AspectType.FitWithinMaxSize }),
+
+
+				New("UICorner", { CornerRadius = UDim.new(0, 0) })
+
+
+			}),
+
+
+
+
+
+		})
+
+
+	end
+
+
+
+
+
+	if isMobile then
+
+
+		holder = New("Frame", {
+
+
+			Name = "FluentMinimizer",
+
+
+			Parent = parentGui,
+
+
+			Size = Config.Size or UDim2.fromOffset(36, 36),
+
+
+			Position = Config.Position or UDim2.new(0.45, 0, 0.025, 0),
+
+
+			BackgroundTransparency = 1,
+
+
+			ZIndex = 999999999,
+
+
+			Visible = (Config.Visible ~= false),
+
+
+		})
+
+
+	else
+
+
+		holder = New("Frame", {
+
+
+			Name = "FluentMinimizer",
+
+
+			Parent = parentGui,
+
+
+			Size = Config.Size or UDim2.fromOffset(36, 36),
+
+
+			Position = Config.Position or UDim2.new(0, 300, 0, 20),
+
+
+			BackgroundTransparency = 1,
+
+
+			ZIndex = 999999999,
+
+
+			Visible = (Config.Visible ~= false),
+
+
+		})
+
+
+	end
+
+
+
+
+
+	if useAcrylic then
+
+
+		local miniAcrylic = Acrylic.AcrylicPaint()
+
+
+		miniAcrylic.Frame.Parent = holder
+
+
+		miniAcrylic.Frame.Size = UDim2.fromScale(1, 1)
+
+
+		pcall(function() miniAcrylic.AddParent(holder) end)
+
+
+
+
+
+		local desiredCorner = UDim.new(0, cornerRadius or 0)
+
+
+		pcall(function()
+
+
+			for _, descendant in ipairs(miniAcrylic.Frame:GetDescendants()) do
+
+
+				if descendant.ClassName == "UICorner" then
+
+
+					descendant.CornerRadius = desiredCorner
+
+
+				elseif descendant.ClassName == "ImageLabel" then
+
+
+					descendant.Size = UDim2.fromScale(1, 1)
+
+
+					descendant.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+
+					descendant.AnchorPoint = Vector2.new(0.5, 0.5)
+
+
+				end
+
+
+			end
+
+
+		end)
+
+
+		self.MinimizerAcrylic = miniAcrylic
+
+
+	end
+
+
+
+
+
+	local btnInstance = createButton(not isMobile)
+
+
+	btnInstance.Parent = holder
+
+
+	btnInstance.ZIndex = (holder.ZIndex or 0) + 1
+
+
+
+
+
+	local button = holder:FindFirstChildOfClass("TextButton")
+
+
+	if button then
+
+
+		local isDragging = false
+
+
+		local dragStart, dragOffset
+
+
+
+
+
+		if draggableWhole then
+
+
+			Creator.AddSignal(button.InputBegan, function(Input)
+
+
+				if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+
+
+					isDragging = true
+
+
+					local pos = Input.Position
+
+
+					dragStart = Vector2.new(pos.X, pos.Y)
+
+
+					dragOffset = holder.Position
+
+
+					local conn
+
+
+					conn = Input.Changed:Connect(function()
+
+
+						if Input.UserInputState == Enum.UserInputState.End then
+
+
+							isDragging = false
+
+
+							dragStart = nil
+
+
+							dragOffset = nil
+
+
+							conn:Disconnect()
+
+
+						end
+
+
+					end)
+
+
+				end
+
+
+			end)
+
+
+
+
+
+			Creator.AddSignal(RunService.Heartbeat, function()
+
+
+				if isDragging and dragStart and dragOffset and holder and holder.Parent then
+
+
+					local mouse = LocalPlayer:GetMouse()
+
+
+					local current = Vector2.new(mouse.X, mouse.Y)
+
+
+					local delta = current - dragStart
+
+
+					local newX = dragOffset.X.Offset + delta.X
+
+
+					local newY = dragOffset.Y.Offset + delta.Y
+
+
+					local viewport = workspace.Camera.ViewportSize
+
+
+					local size = holder.AbsoluteSize
+
+
+					if newX < 0 then newX = 0 end
+
+
+					if newY < 0 then newY = 0 end
+
+
+					if newX > viewport.X - size.X then newX = viewport.X - size.X end
+
+
+					if newY > viewport.Y - size.Y then newY = viewport.Y - size.Y end
+
+
+					holder.Position = UDim2.new(0, newX, 0, newY)
+
+
+				end
+
+
+			end)
+
+
+		end
+
+
+
+
+
+		AddSignal(button.MouseButton1Click, function()
+
+
+			task.wait(0.1)
+
+
+			if not isDragging and Library.Window then
+
+
+				Library.Window:Minimize()
+
+
+			end
+
+
+		end)
+
+
+	end
+
+
+
+
+
+
+
+
+
+
+
+	self.Minimizer = holder
+
+
+	return holder
+
+
+end
+
+
+
+
+
+function Library:SetTheme(Value)
+
+
+	if Library.Window and table.find(Library.Themes, Value) then
+
+
+		Library.Theme = Value
+
+
+		Creator.UpdateTheme()
+
+
+
+
+
+		if Value == "Glass" then
+
+
+			Library:SetWindowTransparency(0.9)
+
+
+		end
+
+
+	end
+
+
+end
+
+
+
+
+
+function Library:Destroy()
+
+
+	if Library.Window then
+
+
+		Library.Unloaded = true
+
+
+		if Library.UseAcrylic then
+
+
+			Library.Window.AcrylicPaint.Model:Destroy()
+
+
+		end
+
+
+		Creator.Disconnect()
+
+
+		Library.GUI:Destroy()
+
+
+	end
+
+
+end
+
+
+
+
+
+function Library:ToggleAcrylic(Value)
+
+
+	if Library.Window then
+
+
+		if Library.UseAcrylic then
+
+
+			Library.Acrylic = Value
+
+
+			if Library.Window.AcrylicPaint and Library.Window.AcrylicPaint.Model then
+
+
+				Library.Window.AcrylicPaint.Model.Transparency = Value and 0.95 or 1
+
+
+			end
+
+
+		end
+
+
+	end
+
+
+end
+
+
+
+
+
+function Library:ToggleTransparency(Value)
+
+
+	if Library.Window then
+
+
+		Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = Value and 0.35 or 0
+
+
+	end
+
+
+end
+
+
+function Library:SetWindowTransparency(Value)
+
+
+	if Library.Window and Library.UseAcrylic then
+
+
+		Value = math.clamp(Value, 0, 3)
+
+
+
+
+
+		if Library.Theme == "Glass" then
+
+
+			local glassTransparency = 0.8 + (Value * 0.05)
+
+
+			if Value > 1 then
+
+
+				glassTransparency = 0.85 + ((Value - 1) * 0.04)
+
+
+			end
+
+
+			if Value > 2 then
+
+
+				glassTransparency = 0.93 + ((Value - 2) * 0.04)
+
+
+			end
+
+
+			Library.Window.AcrylicPaint.Model.Transparency = math.min(glassTransparency, 0.99)
+
+
+
+
+
+			local backgroundTransparency = 0.7 + (Value * 0.08)
+
+
+			if Value > 1 then
+
+
+				backgroundTransparency = 0.78 + ((Value - 1) * 0.07)
+
+
+			end
+
+
+			if Value > 2 then
+
+
+				backgroundTransparency = 0.85 + ((Value - 2) * 0.1)
+
+
+			end
+
+
+			Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = math.min(backgroundTransparency, 0.99)
+
+
+
+
+
+			Library.NotificationTransparency = Value
+
+
+
+
+
+			for _, notification in pairs(Library.ActiveNotifications or {}) do
+
+
+				if notification and notification.ApplyTransparency then
+
+
+					notification:ApplyTransparency()
+
+
+				end
+
+
+			end
+
+
+		else
+
+
+			Library.Window.AcrylicPaint.Model.Transparency = 0.98
+
+
+			Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = Value * 0.3
+
+
+		end
+
+
+	end
+
+
+end
+
+
+
+
+
+function Library:Notify(Config)
+
+
+	return NotificationModule:New(Config)
+
+
+end
+
+
+
+
+
+if getgenv then
+
+
+	getgenv().Fluent = Library
+
+
+else
+
+
+	Fluent = Library
+
+
+end
+
+
+
+
+
+local MinimizeButton = New("TextButton", {
+
+
+	BackgroundColor3 = Color3.fromRGB(25, 25, 30),
+
+
+	Size = UDim2.new(1, 0, 1, 0),
+
+
+	BorderSizePixel = 0,
+
+
+	BackgroundTransparency = 0.05, 
+
+
+}, {
+
+
+	New("UICorner", {
+
+
+		CornerRadius = UDim.new(0, 14),
+
+
+	}),
+
+
+	New("UIGradient", {
+
+
+		Color = ColorSequence.new{
+
+
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 50)),
+
+
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 25))
+
+
+		},
+
+
+		Rotation = 45,
+
+
+	}),
+
+
+	New("UIStroke", {
+
+
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+
+
+		Color = Color3.fromRGB(100, 150, 255),
+
+
+		Transparency = 0.6,
+
+
+		Thickness = 2,
+
+
+	}),
+
+
+	New("Frame", {
+
+
+		BackgroundColor3 = Color3.fromRGB(100, 150, 255),
+
+
+		BackgroundTransparency = 0.9,
+
+
+		Size = UDim2.new(1, -6, 1, -6),
+
+
+		Position = UDim2.new(0, 3, 0, 3),
+
+
+		BorderSizePixel = 0,
+
+
+	}, {
+
+
+		New("UICorner", {
+
+
+			CornerRadius = UDim.new(0, 11),
+
+
+		}),
+
+
+	}),
+
+
+	New("Frame", {
+
+
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+
+
+		BackgroundTransparency = 0.94,
+
+
+		Size = UDim2.new(0.7, 0, 0.3, 0),
+
+
+		Position = UDim2.new(0.15, 0, 0.1, 0),
+
+
+		BorderSizePixel = 0,
+
+
+	}, {
+
+
+		New("UICorner", {
+
+
+			CornerRadius = UDim.new(0, 8),
+
+
+		}),
+
+
+	}),
+
+
+	New("ImageLabel", {
+
+
+		Image = "rbxassetid://10734897102",
+
+
+		Size = UDim2.new(0.8, 0, 0.8, 0),
+
+
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+
+
+		AnchorPoint = Vector2.new(0.5, 0.5),
+
+
+		BackgroundTransparency = 1,
+
+
+		ImageColor3 = Color3.fromRGB(255, 255, 255),
+
+
+		ImageTransparency = 0.1,
+
+
+	}, {
+
+
+		New("UIAspectRatioConstraint", {
+
+
+			AspectRatio = 1,
+
+
+			AspectType = Enum.AspectType.FitWithinMaxSize,
+
+
+		})
+
+
+	})
+
+
+})
+
+
+
+
+
+local MobileMinimizeButton = New("TextButton", {
+
+
+	BackgroundColor3 = Color3.fromRGB(25, 25, 30),
+
+
+	Size = UDim2.new(1, 0, 1, 0),
+
+
+	BorderSizePixel = 0,
+
+
+	BackgroundTransparency = 0.05,
+
+
+}, {
+
+
+	New("UICorner", {
+
+
+		CornerRadius = UDim.new(0, 12),
+
+
+	}),
+
+
+	New("UIGradient", {
+
+
+		Color = ColorSequence.new{
+
+
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 50)),
+
+
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 25))
+
+
+		},
+
+
+		Rotation = 45,
+
+
+	}),
+
+
+	New("UIStroke", {
+
+
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+
+
+		Color = Color3.fromRGB(100, 150, 255),
+
+
+		Transparency = 0.7,
+
+
+		Thickness = 1.5,
+
+
+	}),
+
+
+	New("Frame", {
+
+
+		BackgroundColor3 = Color3.fromRGB(100, 150, 255),
+
+
+		BackgroundTransparency = 0.92,
+
+
+		Size = UDim2.new(1, -4, 1, -4),
+
+
+		Position = UDim2.new(0, 2, 0, 2),
+
+
+		BorderSizePixel = 0,
+
+
+	}, {
+
+
+		New("UICorner", {
+
+
+			CornerRadius = UDim.new(0, 10),
+
+
+		}),
+
+
+	}),
+
+
+	New("ImageLabel", {
+
+
+		Image = "rbxassetid://10734897102",
+
+
+		Size = UDim2.new(0.8, 0, 0.8, 0),
+
+
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+
+
+		AnchorPoint = Vector2.new(0.5, 0.5),
+
+
+		BackgroundTransparency = 1,
+
+
+		ImageColor3 = Color3.fromRGB(255, 255, 255),
+
+
+		ImageTransparency = 0.1,
+
+
+	}, {
+
+
+		New("UIAspectRatioConstraint", {
+
+
+			AspectRatio = 1,
+
+
+			AspectType = Enum.AspectType.FitWithinMaxSize,
+
+
+		})
+
+
+	})
+
+
+})
+
+
+
+
+
+local Minimizer
+
+
+
+
+
+local isDragging = false
+
+
+local dragStart = nil
+
+
+local dragOffset = nil
+
+
+
+
+
+Creator.AddSignal(MinimizeButton.InputBegan, function(Input)
+
+
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+
+		isDragging = true
+
+
+		dragStart = Vector2.new(Input.Position.X, Input.Position.Y)
+
+
+		dragOffset = (Library.Minimizer or Minimizer).Position
+
+
+
+
+
+		local connection
+
+
+		connection = Input.Changed:Connect(function()
+
+
+			if Input.UserInputState == Enum.UserInputState.End then
+
+
+				isDragging = false
+
+
+				dragStart = nil
+
+
+				dragOffset = nil
+
+
+				connection:Disconnect()
+
+
+			end
+
+
+		end)
+
+
+	end
+
+
+end)
+
+
+
+
+
+Creator.AddSignal(MobileMinimizeButton.InputBegan, function(Input)
+
+
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+
+
+		isDragging = true
+
+
+		dragStart = Vector2.new(Input.Position.X, Input.Position.Y)
+
+
+		dragOffset = (Library.Minimizer or Minimizer).Position
+
+
+		local connection
+
+
+		connection = Input.Changed:Connect(function()
+
+
+			if Input.UserInputState == Enum.UserInputState.End then
+
+
+				isDragging = false
+
+
+				dragStart = nil
+
+
+				dragOffset = nil
+
+
+				connection:Disconnect()
+
+
+			end
+
+
+		end)
+
+
+	end
+
+
+end)
+
+
+
+
+
+local debugCount = 0
+
+
+Creator.AddSignal(RunService.Heartbeat, function()
+
+
+	local activeMin = Library.Minimizer or Minimizer
+
+
+	if isDragging and dragStart and dragOffset and activeMin and activeMin.Parent then
+
+
+		debugCount = debugCount + 1
+
+
+		if debugCount % 30 == 1 then
+
+
+		end
+
+
+		local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
+
+
+		local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+
+
+		local delta = currentMousePos - dragStart
+
+
+		local newX = dragOffset.X.Offset + delta.X
+
+
+		local newY = dragOffset.Y.Offset + delta.Y
+
+
+		local viewportSize = workspace.Camera.ViewportSize
+
+
+		local minimizerSize = activeMin.AbsoluteSize
+
+
+
+
+
+		if newX < 0 then newX = 0 end
+
+
+		if newY < 0 then newY = 0 end
+
+
+		if newX > viewportSize.X - minimizerSize.X then 
+
+
+			newX = viewportSize.X - minimizerSize.X 
+
+
+		end
+
+
+		if newY > viewportSize.Y - minimizerSize.Y then 
+
+
+			newY = viewportSize.Y - minimizerSize.Y 
+
+
+		end
+
+
+		activeMin.Position = UDim2.new(0, newX, 0, newY)
+
+
+	end
+
+
+end)
+
+
+
+
+
+AddSignal(MinimizeButton.MouseButton1Click, function()
+
+
+	task.wait(0.1)
+
+
+	if not isDragging then
+
+
+		Library.Window:Minimize()
+
+
+	end
+
+
+end)
+
+
+
+
+
+AddSignal(MobileMinimizeButton.MouseButton1Click, function()
+
+
+	task.wait(0.1)
+
+
+	if not isDragging then
+
+
+		Library.Window:Minimize()
+
+
+	end
+
+
+end)
+
+
+
+
 if RunService:IsStudio() then task.wait(0.01) end
 return Library, SaveManager, InterfaceManager, Mobile
