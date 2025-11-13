@@ -4092,6 +4092,7 @@ ElementsTable.Dropdown = (function()
 
 		local DropdownHolderFrame = New("Frame", {
 			Size = UDim2.fromScale(1, 0.6),
+			BackgroundTransparency = Config.DropdownsOutsideWindow and 0.1 or 0,
 			ThemeTag = {
 				BackgroundColor3 = "DropdownHolder",
 			},
