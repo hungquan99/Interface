@@ -1813,7 +1813,8 @@ local New = Creator.New
 
 local GUI = New("ScreenGui", {
     Parent = LocalPlayer:WaitForChild("PlayerGui"),
-    DisplayOrder = 9999999999999,
+    DisplayOrder = 9999,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 Library.GUI = GUI
 ProtectGui(GUI)
