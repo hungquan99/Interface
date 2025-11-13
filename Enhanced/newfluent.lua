@@ -4090,9 +4090,15 @@ ElementsTable.Dropdown = (function()
 			Creator.AddSignal(SearchBox:GetPropertyChangedSignal("Text"), ApplyFilter)
 		end
 
+		local brTransparency1
+		if Config.DropdownsOutsideWindow then
+			brTransparency1 = 0.25
+		else
+			brTransparency1 = 0
+		end
 		local DropdownHolderFrame = New("Frame", {
 			Size = UDim2.fromScale(1, 0.6),
-			BackgroundTransparency = Config.DropdownsOutsideWindow and 0.25 or 0,
+			BackgroundTransparency = brTransparency1,
 			ThemeTag = {
 				BackgroundColor3 = "DropdownHolder",
 			},
