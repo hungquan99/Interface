@@ -2053,7 +2053,7 @@ Components.Notification = (function()
 
 		Notification.Holder = New("Frame", {
 			Position = UDim2.new(1, -30, 1, -30),
-			Size = UDim2.new(0, 340, 1, -30), -- Slightly wider
+			Size = UDim2.new(0, 340, 1, -30),
 			AnchorPoint = Vector2.new(1, 1),
 			BackgroundTransparency = 1,
 			Parent = GUI,
@@ -2184,7 +2184,6 @@ Components.Notification = (function()
 			NewNotification.AcrylicPaint.Frame,
 			IconLabel,
 			NewNotification.Title,
-			NewNotification.CloseButton,
 			LabelHolder,
 			ButtonHolder,
 		})
@@ -2220,7 +2219,7 @@ Components.Notification = (function()
 			Parent = Notification.Holder,
 		}, { NewNotification.Root })
 
-		-- Animation Motor
+		-- Animation
 		local RootMotor = Flipper.GroupMotor.new({ Scale = 1, Offset = 60 })
 		RootMotor:onStep(function(Values)
 			NewNotification.Root.Position = UDim2.new(Values.Scale, Values.Offset, 0, 0)
@@ -2236,10 +2235,11 @@ Components.Notification = (function()
 				Offset = Spring(0, { frequency = 5 }),
 			})
 
+			-- Fixed Acrylic Visibility
 			task.defer(function()
 				task.wait(0.1)
-				if NewNotification.AcrylicPaint then
-					NewNotification.AcrylicPaint:SetVisibility(true)
+				if NewNotification.AcrylicPaint and NewNotification.AcrylicPaint.Model then
+					NewNotification.AcrylicPaint.Model.Transparency = 0.95
 				end
 			end)
 		end
