@@ -1,3 +1,4 @@
+
 --[[
 
     Milenium Library
@@ -496,8 +497,8 @@
     -- Library element functions
         function library:window(properties)
             local cfg = { 
-                suffix = properties.suffix or properties.Suffix or "tech";
-                name = properties.name or properties.Name or "nebula";
+                suffix = properties.suffix or properties.Suffix or "2";
+                name = properties.name or properties.Name or "2";
                 game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "Milenium for Counter-Strike: Global Offensive";
                 size = properties.size or properties.Size or dim2(0, 700, 0, 565);
                 selected_tab;
