@@ -2053,7 +2053,7 @@ Components.Notification = (function()
 
 		Notification.Holder = New("Frame", {
 			Position = UDim2.new(1, -25, 1, -25),
-			Size = UDim2.new(0, 350, 1, -25),
+			Size = UDim2.new(0, 340, 1, -25),
 			AnchorPoint = Vector2.new(1, 1),
 			BackgroundTransparency = 1,
 			Parent = GUI,
@@ -2062,7 +2062,7 @@ Components.Notification = (function()
 				HorizontalAlignment = Enum.HorizontalAlignment.Center,
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				VerticalAlignment = Enum.VerticalAlignment.Bottom,
-				Padding = UDim.new(0, 16),
+				Padding = UDim.new(0, 12), -- Compact spacing
 			}),
 		})
 	end
@@ -2074,12 +2074,12 @@ Components.Notification = (function()
 		Config.Duration = Config.Duration
 		Config.Buttons = Config.Buttons or {}
 		Config.Icon = Config.Icon or nil
-		Config.Type = Config.Type or "default" -- default, success, warning, error
+		Config.Type = Config.Type or "default"
 		Config.ShowClose = Config.ShowClose ~= false
 
 		local NewNotification = { Closed = false }
 
-		-- Accent color based on type
+		-- Accent color
 		local accentColor = Library.Creator.GetThemeProperty("Accent")
 		if Config.Type == "success" then accentColor = Color3.fromRGB(0, 200, 100)
 		elseif Config.Type == "warning" then accentColor = Color3.fromRGB(255, 180, 0)
@@ -2092,8 +2092,8 @@ Components.Notification = (function()
 		if Config.Icon then
 			local iconId = Library:GetIcon(Config.Icon) or Config.Icon
 			IconLabel = New("ImageLabel", {
-				Size = UDim2.fromOffset(22, 22),
-				Position = UDim2.new(0, 16, 0, 16),
+				Size = UDim2.fromOffset(20, 20),
+				Position = UDim2.new(0, 14, 0, 14),
 				BackgroundTransparency = 1,
 				Image = iconId,
 				ImageColor3 = accentColor,
@@ -2101,10 +2101,9 @@ Components.Notification = (function()
 		end
 
 		NewNotification.Title = New("TextLabel", {
-			Position = IconLabel and UDim2.new(0, 48, 0, 16) or UDim2.new(0, 16, 0, 16),
+			Position = IconLabel and UDim2.new(0, 42, 0, 13) or UDim2.new(0, 14, 0, 13),
 			Text = Config.Title,
 			RichText = true,
-			TextColor3 = Color3.fromRGB(255, 255, 255),
 			TextSize = 14,
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold),
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -2115,12 +2114,11 @@ Components.Notification = (function()
 		NewNotification.ContentLabel = New("TextLabel", {
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 			Text = Config.Content,
-			TextColor3 = Color3.fromRGB(240, 240, 240),
 			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextWrapped = true,
 			AutomaticSize = Enum.AutomaticSize.Y,
-			Size = UDim2.new(1, -32, 0, 0),
+			Size = UDim2.new(1, -28, 0, 0),
 			BackgroundTransparency = 1,
 			ThemeTag = { TextColor3 = "Text" },
 		})
@@ -2128,37 +2126,39 @@ Components.Notification = (function()
 		NewNotification.SubContentLabel = New("TextLabel", {
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 			Text = Config.SubContent,
-			TextColor3 = Color3.fromRGB(170, 170, 170),
 			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextWrapped = true,
 			AutomaticSize = Enum.AutomaticSize.Y,
-			Size = UDim2.new(1, -32, 0, 0),
+			Size = UDim2.new(1, -28, 0, 0),
 			BackgroundTransparency = 1,
 			ThemeTag = { TextColor3 = "SubText" },
 		})
 
 		local LabelHolder = New("Frame", {
 			BackgroundTransparency = 1,
-			Position = UDim2.new(0, 16, 0, IconLabel and 46 or 38),
-			Size = UDim2.new(1, -32, 1, -80),
+			Position = UDim2.new(0, 14, 0, IconLabel and 40 or 34),
+			Size = UDim2.new(1, -28, 1, -70),
 			AutomaticSize = Enum.AutomaticSize.Y,
 		}, {
-			New("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }),
+			New("UIListLayout", { 
+				Padding = UDim.new(0, 2), 
+				SortOrder = Enum.SortOrder.LayoutOrder 
+			}),
 			NewNotification.ContentLabel,
 			NewNotification.SubContentLabel,
 		})
 
-		-- Buttons Frame
+		-- Buttons (compact)
 		local ButtonHolder
 		if #Config.Buttons > 0 then
 			ButtonHolder = New("Frame", {
-				Size = UDim2.new(1, -32, 0, 46),
+				Size = UDim2.new(1, -28, 0, 36),
 				BackgroundTransparency = 1,
-				Position = UDim2.new(0, 16, 1, -54),
+				Position = UDim2.new(0, 14, 1, -44),
 			}, {
 				New("UIListLayout", {
-					Padding = UDim.new(0, 8),
+					Padding = UDim.new(0, 6),
 					FillDirection = Enum.FillDirection.Horizontal,
 					HorizontalAlignment = Enum.HorizontalAlignment.Right,
 				})
@@ -2167,7 +2167,7 @@ Components.Notification = (function()
 			for _, btn in ipairs(Config.Buttons) do
 				local Button = Components.Button("", ButtonHolder, true)
 				Button.Title.Text = btn.Title
-				Button.Frame.Size = UDim2.new(1 / math.max(#Config.Buttons, 2) - 0.05, 0, 0, 34)
+				Button.Frame.Size = UDim2.new(1 / math.max(#Config.Buttons, 2) - 0.08, 0, 0, 30)
 
 				Creator.AddSignal(Button.Frame.MouseButton1Click, function()
 					if btn.Callback then Library:SafeCallback(btn.Callback) end
@@ -2192,7 +2192,7 @@ Components.Notification = (function()
 		if Config.ShowClose then
 			NewNotification.CloseButton = New("TextButton", {
 				Text = "",
-				Position = UDim2.new(1, -14, 0, 14),
+				Position = UDim2.new(1, -12, 0, 12),
 				Size = UDim2.fromOffset(20, 20),
 				AnchorPoint = Vector2.new(1, 0),
 				BackgroundTransparency = 1,
@@ -2215,35 +2215,31 @@ Components.Notification = (function()
 
 		NewNotification.Holder = New("Frame", {
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, 0, 0, 140),
+			Size = UDim2.new(1, 0, 0, 100),
 			Parent = Notification.Holder,
 		}, { NewNotification.Root })
 
 		-- Animation
-		local RootMotor = Flipper.GroupMotor.new({ Scale = 1, Offset = 70 })
+		local RootMotor = Flipper.GroupMotor.new({ Scale = 1, Offset = 60 })
 		RootMotor:onStep(function(Values)
 			NewNotification.Root.Position = UDim2.new(Values.Scale, Values.Offset, 0, 0)
 		end)
 
 		function NewNotification:Open()
-			local contentH = LabelHolder.AbsoluteSize.Y
-			local buttonH = ButtonHolder and 54 or 0
-			NewNotification.Holder.Size = UDim2.new(1, 0, 0, 68 + contentH + buttonH)
+			local contentHeight = LabelHolder.AbsoluteSize.Y
+			local buttonHeight = ButtonHolder and 42 or 0
+			NewNotification.Holder.Size = UDim2.new(1, 0, 0, 52 + contentHeight + buttonHeight)
 
 			RootMotor:setGoal({
 				Scale = Spring(0, { frequency = 5.5 }),
 				Offset = Spring(0, { frequency = 5.5 }),
 			})
 
-			-- Safe Acrylic Handling
+			-- Safe Acrylic
 			task.defer(function()
-				task.wait(0.08)
-				local paint = NewNotification.AcrylicPaint
-				if paint and paint.Model then
-					paint.Model.Transparency = 0.95
-				elseif paint and paint.Frame then
-					-- Fallback if no acrylic model
-					paint.Frame.BackgroundTransparency = 0.4
+				task.wait(0.1)
+				if NewNotification.AcrylicPaint and NewNotification.AcrylicPaint.Model then
+					NewNotification.AcrylicPaint.Model.Transparency = 0.95
 				end
 			end)
 		end
@@ -2261,10 +2257,10 @@ Components.Notification = (function()
 
 			RootMotor:setGoal({
 				Scale = Spring(1, { frequency = 5 }),
-				Offset = Spring(90, { frequency = 5 }),
+				Offset = Spring(80, { frequency = 5 }),
 			})
 
-			task.delay(0.45, function()
+			task.delay(0.4, function()
 				if NewNotification.AcrylicPaint and NewNotification.AcrylicPaint.Model then
 					NewNotification.AcrylicPaint.Model:Destroy()
 				end
@@ -2277,7 +2273,9 @@ Components.Notification = (function()
 
 		if Config.Duration then
 			task.delay(Config.Duration, function()
-				if not NewNotification.Closed then NewNotification:Close() end
+				if not NewNotification.Closed then
+					NewNotification:Close()
+				end
 			end)
 		end
 
