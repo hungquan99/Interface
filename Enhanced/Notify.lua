@@ -111,6 +111,7 @@ function Notif.New(text, timee, type)
     if iconAsset then
         icon = Instance.new("ImageLabel")
         icon.Image = iconAsset
+        icon.ImageColor3 = accentColor
         icon.BackgroundTransparency = 1
         icon.Size = UDim2.new(0, 20, 0, 20)
         icon.LayoutOrder = 1
