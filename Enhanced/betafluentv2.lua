@@ -1869,11 +1869,11 @@ Components.Tab = (function()
 				-- so the bar lives in its own reserved strip clearly below
 				-- the pills instead of overlapping or hugging them.
 				local SubTabBarScrollThickness = 3
-				local SubTabBarScrollGap = 5
+				local SubTabBarScrollGap = 6
 
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
-					Size = UDim2.new(1, 0, 0, 30 + SubTabBarScrollGap + SubTabBarScrollThickness),
+					Size = UDim2.new(1, 0, 0, 30),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					LayoutOrder = -1000,
@@ -1899,9 +1899,29 @@ Components.Tab = (function()
 					}),
 				})
 
+				-- Only grow the holder (and reserve room for the scrollbar)
+				-- when the pills actually overflow the available width. If
+				-- everything fits, there's nothing to scroll, so it snaps
+				-- back to the plain 30px row - no dead space, no bar.
+				local function UpdateSubTabBarHeight()
+					local ContentWidth = SubTabBarLayout.AbsoluteContentSize.X + 8
+					local AvailableWidth = Tab.SubTabBarHolder.AbsoluteSize.X
+					local Overflowing = AvailableWidth > 0 and ContentWidth > AvailableWidth + 1
+
+					Tab.SubTabBarHolder.Size = UDim2.new(
+						1,
+						0,
+						0,
+						Overflowing and (30 + SubTabBarScrollGap + SubTabBarScrollThickness) or 30
+					)
+				end
+
 				Creator.AddSignal(SubTabBarLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 					Tab.SubTabBarHolder.CanvasSize = UDim2.new(0, SubTabBarLayout.AbsoluteContentSize.X + 8, 0, 0)
+					UpdateSubTabBarHeight()
 				end)
+
+				Creator.AddSignal(Tab.SubTabBarHolder:GetPropertyChangedSignal("AbsoluteSize"), UpdateSubTabBarHeight)
 
 				Tab.SubTabBarScrollMotor = Flipper.SingleMotor.new(0)
 				Tab.SubTabBarScrollMotor:onStep(function(Value)
@@ -5798,6 +5818,59 @@ ElementsTable.Input = (function()
 	return Element
 end)()
 
+-- Divider: a thin horizontal separator line, useful for visually
+-- grouping elements inside a Tab/Section without needing a full
+-- Section header. Uses the same "TitleBarLine" theme color already
+-- used elsewhere in the library (title bar, subtab bar) so it matches
+-- the rest of the UI automatically across themes.
+ElementsTable.Divider = (function()
+	local Element = {}
+	Element.__index = Element
+	Element.__type = "Divider"
+
+	function Element:New(Config)
+		Config = Config or {}
+
+		local Thickness = Config.Thickness or 1
+
+		local Divider = {
+			Type = "Divider",
+		}
+
+		local DividerFrame = New("Frame", {
+			Name = "Divider",
+			Size = UDim2.new(1, 0, 0, Thickness + 12),
+			BackgroundTransparency = 1,
+			Parent = self.Container,
+		}, {
+			New("Frame", {
+				Name = "Line",
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, 0, 0.5, 0),
+				Size = UDim2.new(1, 0, 0, Thickness),
+				BorderSizePixel = 0,
+				ThemeTag = {
+					BackgroundColor3 = "TitleBarLine",
+				},
+			}),
+		})
+
+		Divider.Instance = DividerFrame
+
+		function Divider:SetVisible(Bool)
+			DividerFrame.Visible = Bool
+		end
+
+		function Divider:Destroy()
+			DividerFrame:Destroy()
+		end
+
+		return Divider
+	end
+
+	return Element
+end)()
+
 local NotificationModule = Components.Notification
 NotificationModule:Init(GUI)
 
@@ -6663,6 +6736,7 @@ local Icons = {
 	["lucide-webhook"] = "rbxassetid://17320556264",
 	["lucide-dumbbell"] = "rbxassetid://18273453053"
 }
+
 function Library:GetIcon(Name)
 	if Name ~= nil and Icons["lucide-" .. Name] then
 		return Icons["lucide-" .. Name]
