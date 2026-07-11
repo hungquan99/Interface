@@ -1744,7 +1744,7 @@ Components.Tab = (function()
 		Tab.Container = Tab.ContainerFrame
 		Tab.ScrollFrame = Tab.Container
 
-		-- ===================== SubTabs (Tabs phụ) =====================
+		-- ===================== SubTabs =====================
 		-- Uses the exact same transition technique as the main Tab switcher
 		-- (TabModule:SelectTab further below): ONE reusable CanvasGroup is
 		-- swapped in only for the duration of the transition and driven by a
@@ -1869,7 +1869,7 @@ Components.Tab = (function()
 				-- so the bar lives in its own reserved strip clearly below
 				-- the pills instead of overlapping or hugging them.
 				local SubTabBarScrollThickness = 3
-				local SubTabBarScrollGap = 10
+				local SubTabBarScrollGap = 15
 
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
