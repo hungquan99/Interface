@@ -1869,7 +1869,7 @@ Components.Tab = (function()
 				-- so the bar lives in its own reserved strip clearly below
 				-- the pills instead of overlapping or hugging them.
 				local SubTabBarScrollThickness = 3
-				local SubTabBarScrollGap = 8
+				local SubTabBarScrollGap = 10
 
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
