@@ -1744,7 +1744,7 @@ Components.Tab = (function()
 		Tab.Container = Tab.ContainerFrame
 		Tab.ScrollFrame = Tab.Container
 
-		-- ===================== SubTabs =====================
+		-- ===================== SubTabs (Tabs phụ) =====================
 		-- Uses the exact same transition technique as the main Tab switcher
 		-- (TabModule:SelectTab further below): ONE reusable CanvasGroup is
 		-- swapped in only for the duration of the transition and driven by a
@@ -1869,7 +1869,7 @@ Components.Tab = (function()
 				-- so the bar lives in its own reserved strip clearly below
 				-- the pills instead of overlapping or hugging them.
 				local SubTabBarScrollThickness = 3
-				local SubTabBarScrollGap = 15
+				local SubTabBarScrollGap = 6
 
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
@@ -1995,7 +1995,12 @@ Components.Tab = (function()
 
 			SubTab.Button = New("TextButton", {
 				Name = "SubTab_" .. Title,
-				Size = UDim2.new(0, 0, 1, 0),
+				-- Fixed offset height instead of UDim2.new(0, 0, 1, 0) - the
+				-- old scale-based height meant the button (and its bottom-
+				-- anchored Underline) grew every time SubTabBarHolder grew,
+				-- which is why increasing SubTabBarScrollGap never actually
+				-- created any visible gap between the pill and the scrollbar.
+				Size = UDim2.new(0, 0, 0, 28),
 				AutomaticSize = Enum.AutomaticSize.X,
 				BackgroundTransparency = 1,
 				AutoButtonColor = false,
