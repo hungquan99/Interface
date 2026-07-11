@@ -1745,6 +1745,14 @@ Components.Tab = (function()
 		Tab.ScrollFrame = Tab.Container
 
 		-- ===================== SubTabs (Tabs phụ) =====================
+		-- Uses the exact same transition technique as the main Tab switcher
+		-- (TabModule:SelectTab further below): ONE reusable CanvasGroup is
+		-- swapped in only for the duration of the transition and driven by a
+		-- single shared Position/GroupTransparency motor pair - instead of
+		-- keeping a separate CanvasGroup alive per subtab. This is cheaper
+		-- (no permanent extra compositor layers) and keeps the two systems
+		-- visually/behaviorally identical. The only real difference is the
+		-- slide axis: horizontal (X) here instead of vertical (Y) for tabs.
 		Tab.SubTabs = {}
 		Tab.SubTabCount = 0
 		Tab.SelectedSubTab = nil
@@ -1793,36 +1801,52 @@ Components.Tab = (function()
 				SubTabObject.SetUnderline(SubTabObject.Selected and 0.1 or 1)
 			end
 
+			pcall(function()
+				Tab:ScrollSubTabIntoView(Tab.SubTabs[Index])
+			end)
+
+			-- First-ever selection for this Tab: just show it, nothing to
+			-- transition from yet.
+			if not Previous then
+				Tab.SubTabs[Index].Page.Visible = true
+				Tab.SubTabPagesAnim.GroupTransparency = 0
+				return
+			end
+
+			-- Slide right when moving to a later subtab, left when moving to
+			-- an earlier one - same left/right paging feel as swiping.
+			local Direction = (Index > Previous) and 1 or -1
+
 			Tab.SubTabSwitchToken = Tab.SubTabSwitchToken + 1
 			local Token = Tab.SubTabSwitchToken
 
-			-- Direction: sliding right-to-left when moving to a later subtab,
-			-- left-to-right when moving to an earlier one, like paged content.
-			local Direction = (Previous and Index > Previous) and 1 or -1
-			local SlideDistance = 18
+			task.spawn(function()
+				Tab.SubTabPagesHolder.Parent = Tab.SubTabPagesAnim
 
-			local NewSubTab = Tab.SubTabs[Index]
-			NewSubTab.Page.Visible = true
-			NewSubTab.SlideMotor:setGoal(Instant(Previous and (Direction * SlideDistance) or 0))
-			NewSubTab.SetPageTransparency(0)
-			NewSubTab.SlideMotor:setGoal(Spring(0, { frequency = 7, dampingRatio = 1 }))
+				Tab.SubTabPosMotor:setGoal(Spring(Direction * 15, { frequency = 10 }))
+				Tab.SubTabBackMotor:setGoal(Spring(1, { frequency = 10 }))
+				task.wait(0.12)
+				if Tab.SubTabSwitchToken ~= Token then
+					return
+				end
 
-			pcall(function()
-				Tab:ScrollSubTabIntoView(NewSubTab)
+				-- The swap happens while GroupTransparency is at its most
+				-- opaque (1 = fully hidden), so jumping straight to the
+				-- opposite offset here is completely invisible to the user -
+				-- exactly the trick the main Tab switcher relies on too.
+				for _, SubTabObject in next, Tab.SubTabs do
+					SubTabObject.Page.Visible = false
+				end
+				Tab.SubTabs[Index].Page.Visible = true
+
+				Tab.SubTabPosMotor:setGoal(Instant(-Direction * 15))
+				Tab.SubTabPosMotor:setGoal(Spring(0, { frequency = 5 }))
+				Tab.SubTabBackMotor:setGoal(Spring(0, { frequency = 8 }))
+				task.wait(0.12)
+				if Tab.SubTabSwitchToken == Token then
+					Tab.SubTabPagesHolder.Parent = Tab.SubTabSlot
+				end
 			end)
-
-			if Previous and Tab.SubTabs[Previous] then
-				local OldSubTab = Tab.SubTabs[Previous]
-				OldSubTab.SetPageTransparency(1)
-				OldSubTab.SlideMotor:setGoal(Spring(-Direction * SlideDistance, { frequency = 7, dampingRatio = 1 }))
-
-				task.delay(0.2, function()
-					if Tab.SubTabSwitchToken == Token and Tab.SelectedSubTab ~= Previous then
-						OldSubTab.Page.Visible = false
-						OldSubTab.SlideMotor:setGoal(Instant(0))
-					end
-				end)
-			end
 		end
 
 		function Tab:AddSubTab(Title, Icon)
@@ -1834,9 +1858,9 @@ Components.Tab = (function()
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				})
 
-				-- ScrollingFrame instead of a plain Frame so the subtab row can be
-				-- scrolled horizontally (mouse wheel / drag / touch) whenever there
-				-- are more subtabs than fit in the available width.
+				-- ScrollingFrame instead of a plain Frame so the subtab row can
+				-- be scrolled horizontally (mouse wheel / drag / touch) whenever
+				-- there are more subtabs than fit in the available width.
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
 					Size = UDim2.new(1, 0, 0, 30),
@@ -1867,6 +1891,70 @@ Components.Tab = (function()
 				Tab.SubTabBarScrollMotor = Flipper.SingleMotor.new(0)
 				Tab.SubTabBarScrollMotor:onStep(function(Value)
 					Tab.SubTabBarHolder.CanvasPosition = Vector2.new(Value, 0)
+				end)
+
+				-- Thin separator under the subtab row - same idiom the rest of
+				-- the library already uses (TitleBarLine) - so the subtab bar
+				-- reads as a distinct, deliberate "real tab bar" instead of a
+				-- loose row of pills floating above content.
+				New("Frame", {
+					Name = "SubTabBarDivider",
+					Size = UDim2.new(1, 0, 0, 1),
+					BackgroundTransparency = 0.6,
+					BorderSizePixel = 0,
+					LayoutOrder = -999,
+					Parent = Tab.Container,
+					ThemeTag = {
+						BackgroundColor3 = "TitleBarLine",
+					},
+				})
+
+				-- Shared transition rig. Slot is the only piece that actually
+				-- lives inside Tab.Container's own layout; Anim and Holder both
+				-- live permanently inside Slot and only ever trade places with
+				-- each other, so Slot never disappears from the layout and
+				-- nothing below it ever snaps/reflows during a switch.
+				Tab.SubTabSlot = New("Frame", {
+					Name = "SubTabSlot",
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					LayoutOrder = -998,
+					Parent = Tab.Container,
+				})
+
+				Tab.SubTabPagesAnim = New("CanvasGroup", {
+					Name = "SubTabPagesAnim",
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					ClipsDescendants = true,
+					Parent = Tab.SubTabSlot,
+				})
+
+				local SubTabPagesLayout = New("UIListLayout", {
+					Padding = UDim.new(0, 0),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				})
+
+				Tab.SubTabPagesHolder = New("Frame", {
+					Name = "SubTabPagesHolder",
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					Parent = Tab.SubTabSlot,
+				}, {
+					SubTabPagesLayout,
+				})
+
+				Tab.SubTabPosMotor = Flipper.SingleMotor.new(0)
+				Tab.SubTabPosMotor:onStep(function(Value)
+					Tab.SubTabPagesAnim.Position = UDim2.fromOffset(Value, 0)
+				end)
+
+				Tab.SubTabBackMotor = Flipper.SingleMotor.new(0)
+				Tab.SubTabBackMotor:onStep(function(Value)
+					Tab.SubTabPagesAnim.GroupTransparency = Value
 				end)
 			end
 
@@ -1974,30 +2062,16 @@ Components.Tab = (function()
 				Tab:SelectSubTab(SubTabIndex)
 			end)
 
-			-- Page = CanvasGroup so the whole subtree can fade as one (GroupTransparency).
-			-- Inner = the actual content holder. It's the ONLY child of Page and is not
-			-- governed by any UIListLayout on Page itself, so animating its X position
-			-- for the slide transition can never fight/conflict with layout systems,
-			-- and since only X (not Y) moves, it can never affect the AutomaticSize
-			-- height Page reports upward - so no scroll-canvas jitter while animating.
-			SubTab.Page = New("CanvasGroup", {
+			-- Plain Frame - no longer needs to be its own CanvasGroup, since
+			-- fading is now handled once, centrally, by Tab.SubTabPagesAnim.
+			SubTab.Page = New("Frame", {
 				Name = "SubTabPage_" .. Title,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				GroupTransparency = 1,
-				ClipsDescendants = true,
-				LayoutOrder = -999 + SubTabIndex,
+				LayoutOrder = SubTabIndex,
 				Visible = false,
-				Parent = Tab.Container,
-			})
-
-			SubTab.Inner = New("Frame", {
-				Name = "Inner",
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				BackgroundTransparency = 1,
-				Parent = SubTab.Page,
+				Parent = Tab.SubTabPagesHolder,
 			}, {
 				New("UIListLayout", {
 					Padding = UDim.new(0, 5),
@@ -2005,14 +2079,7 @@ Components.Tab = (function()
 				}),
 			})
 
-			SubTab.PageMotor, SubTab.SetPageTransparency = Creator.SpringMotor(1, SubTab.Page, "GroupTransparency", true)
-
-			SubTab.SlideMotor = Flipper.SingleMotor.new(0)
-			SubTab.SlideMotor:onStep(function(Value)
-				SubTab.Inner.Position = UDim2.new(0, Value, 0, 0)
-			end)
-
-			SubTab.Container = SubTab.Inner
+			SubTab.Container = SubTab.Page
 			SubTab.ScrollFrame = Tab.Container
 
 			function SubTab:AddSection(SectionTitle, SectionIcon)
