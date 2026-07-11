@@ -1861,15 +1861,20 @@ Components.Tab = (function()
 				-- ScrollingFrame instead of a plain Frame so the subtab row can
 				-- be scrolled horizontally (mouse wheel / drag / touch) whenever
 				-- there are more subtabs than fit in the available width.
+				-- Height = 30 (subtab row) + ScrollBarThickness, so the bar
+				-- itself lives in its own reserved strip below the pills
+				-- instead of overlapping them.
+				local SubTabBarScrollThickness = 3
+
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
-					Size = UDim2.new(1, 0, 0, 30),
+					Size = UDim2.new(1, 0, 0, 30 + SubTabBarScrollThickness),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					LayoutOrder = -1000,
 					Parent = Tab.Container,
 					ScrollingDirection = Enum.ScrollingDirection.X,
-					ScrollBarThickness = 3,
+					ScrollBarThickness = SubTabBarScrollThickness,
 					ScrollBarImageTransparency = 0.95,
 					ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
 					BottomImage = "rbxassetid://6889812791",
@@ -1877,6 +1882,10 @@ Components.Tab = (function()
 					TopImage = "rbxassetid://6276641225",
 					CanvasSize = UDim2.fromScale(0, 0),
 					ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+					-- Reserve a dedicated strip for the horizontal scrollbar
+					-- instead of letting it float on top of the canvas, which
+					-- was clipping the bottom few pixels of the subtab pills.
+					HorizontalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 				}, {
 					SubTabBarLayout,
 					New("UIPadding", {
