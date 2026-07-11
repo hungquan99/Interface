@@ -5839,6 +5839,15 @@ ElementsTable.Divider = (function()
 
 		local DividerFrame = New("Frame", {
 			Name = "Divider",
+			-- Every other element's root frame (Toggle, Button, Slider...)
+			-- is created via Components.Element with a fixed LayoutOrder
+			-- of 7, and the library relies on parenting/insertion order to
+			-- break the tie between same-LayoutOrder siblings. Divider
+			-- previously had no LayoutOrder set (defaulting to 0), so it
+			-- always sorted before every other element regardless of when
+			-- it was added - matching that 7 here is what makes it land
+			-- exactly where you call AddDivider() in your code.
+			LayoutOrder = 7,
 			Size = UDim2.new(1, 0, 0, Thickness + 12),
 			BackgroundTransparency = 1,
 			Parent = self.Container,
