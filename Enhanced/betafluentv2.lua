@@ -6737,6 +6737,26 @@ local Icons = {
 	["lucide-dumbbell"] = "rbxassetid://18273453053"
 }
 
+-- Pull in the (much larger / more up-to-date) icon set hosted here and
+-- merge it over the built-in table above, so any icon that exists
+-- remotely but not locally becomes available, and remote entries win
+-- when a name exists in both. Wrapped in pcall since HttpGet isn't
+-- guaranteed to exist/succeed in every executor - if it fails for any
+-- reason, Icons just quietly falls back to the table already loaded.
+do
+	local RemoteIconsUrl = "https://raw.githubusercontent.com/hungquan99/Interface/refs/heads/main/lucideicons.lua"
+
+	local Success, Result = pcall(function()
+		return loadstring(game:HttpGet(RemoteIconsUrl))()
+	end)
+
+	if Success and typeof(Result) == "table" then
+		for IconName, IconAsset in next, Result do
+			Icons[IconName] = IconAsset
+		end
+	end
+end
+
 function Library:GetIcon(Name)
 	if Name ~= nil and Icons["lucide-" .. Name] then
 		return Icons["lucide-" .. Name]
