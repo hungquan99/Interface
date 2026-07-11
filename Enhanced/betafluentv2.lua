@@ -1691,11 +1691,50 @@ Components.Tab = (function()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		})
 
-		Tab.ContainerFrame = New("ScrollingFrame", {
+		-- Tab.Root is the thing that actually gets shown/hidden when
+		-- switching tabs now (instead of Tab.ContainerFrame directly).
+		-- It holds two stacked pieces:
+		--   1) Tab.FixedHeader - NOT a ScrollingFrame, sits pinned at the
+		--      very top. This is where the subtab bar (+ its divider)
+		--      lives once AddSubTab is called, so it behaves exactly like
+		--      Window.TabDisplay (the tab title): always visible, never
+		--      scrolls away.
+		--   2) Tab.ContainerFrame - the actual scrolling content area,
+		--      resized/repositioned below the header automatically.
+		-- Tabs that never call AddSubTab keep FixedHeader at 0 height, so
+		-- ContainerFrame fills the whole Tab.Root exactly like before.
+		Tab.Root = New("Frame", {
+			Name = "TabRoot",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Parent = Window.ContainerHolder,
 			Visible = false,
+			Parent = Window.ContainerHolder,
+		})
+
+		Tab.FixedHeader = New("Frame", {
+			Name = "FixedHeader",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Parent = Tab.Root,
+		}, {
+			New("UIListLayout", {
+				-- Constant gap between the subtab pill row and the divider
+				-- below it, regardless of whether the pill row is currently
+				-- tall (reserving room for its own overflow scrollbar) or
+				-- short (no overflow) - previously this was 0, so the
+				-- divider sat flush against the pills whenever there was no
+				-- scrollbar to create accidental breathing room.
+				Padding = UDim.new(0, 5),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+		})
+
+		Tab.ContainerFrame = New("ScrollingFrame", {
+			Size = UDim2.fromScale(1, 1),
+			Position = UDim2.fromOffset(0, 0),
+			BackgroundTransparency = 1,
+			Parent = Tab.Root,
 			BottomImage = "rbxassetid://6889812791",
 			MidImage = "rbxassetid://6889812721",
 			TopImage = "rbxassetid://6276641225",
@@ -1715,6 +1754,26 @@ Components.Tab = (function()
 				PaddingBottom = UDim.new(0, 1),
 			}),
 		})
+
+		-- Keeps the scrolling area glued to the bottom edge of the fixed
+		-- header whenever the header's height changes (subtab bar first
+		-- appearing, or growing/shrinking as it gains/loses its own
+		-- scrollbar from the overflow logic above).
+		-- Old layout: divider and the first section both lived inside
+		-- ContainerLayout, getting its 5px inter-item Padding "for free".
+		-- New layout: the header lives outside ContainerFrame, and
+		-- ContainerFrame's own UIPadding (PaddingTop = 1) adds 1px on top
+		-- of whatever we add here - so use 4, not 5, to land on the same
+		-- total 5px gap as before (only when there IS a header).
+		local HeaderContentGap = 4
+		local function UpdateTabContainerBounds()
+			local HeaderHeight = Tab.FixedHeader.AbsoluteSize.Y
+			local Offset = HeaderHeight > 0 and (HeaderHeight + HeaderContentGap) or 0
+			Tab.ContainerFrame.Position = UDim2.new(0, 0, 0, Offset)
+			Tab.ContainerFrame.Size = UDim2.new(1, 0, 1, -Offset)
+		end
+		Creator.AddSignal(Tab.FixedHeader:GetPropertyChangedSignal("AbsoluteSize"), UpdateTabContainerBounds)
+		UpdateTabContainerBounds()
 
 		Creator.AddSignal(ContainerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 			Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, ContainerLayout.AbsoluteContentSize.Y + 2)
@@ -1738,7 +1797,7 @@ Components.Tab = (function()
 			TabModule:SelectTab(TabIndex)
 		end)
 
-		TabModule.Containers[TabIndex] = Tab.ContainerFrame
+		TabModule.Containers[TabIndex] = Tab.Root
 		TabModule.Tabs[TabIndex] = Tab
 
 		Tab.Container = Tab.ContainerFrame
@@ -1877,7 +1936,11 @@ Components.Tab = (function()
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					LayoutOrder = -1000,
-					Parent = Tab.Container,
+					-- Lives in the fixed header (not Tab.Container) so it
+					-- stays pinned in place while the content below scrolls,
+					-- the same way Window.TabDisplay (the tab title) never
+					-- scrolls away.
+					Parent = Tab.FixedHeader,
 					ScrollingDirection = Enum.ScrollingDirection.X,
 					ScrollBarThickness = SubTabBarScrollThickness,
 					ScrollBarImageTransparency = 0.95,
@@ -1938,7 +2001,7 @@ Components.Tab = (function()
 					BackgroundTransparency = 0.6,
 					BorderSizePixel = 0,
 					LayoutOrder = -999,
-					Parent = Tab.Container,
+					Parent = Tab.FixedHeader,
 					ThemeTag = {
 						BackgroundColor3 = "TitleBarLine",
 					},
