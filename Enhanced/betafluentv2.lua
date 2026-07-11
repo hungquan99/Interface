@@ -1851,24 +1851,29 @@ Components.Tab = (function()
 
 		function Tab:AddSubTab(Title, Icon)
 			if not Tab.SubTabBarHolder then
+				-- Pills are pinned to the top (instead of centered) so the
+				-- extra gap below always shows up as breathing room above
+				-- the scrollbar, rather than being split above/below the
+				-- pills by centering.
 				local SubTabBarLayout = New("UIListLayout", {
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 6),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-					VerticalAlignment = Enum.VerticalAlignment.Center,
+					VerticalAlignment = Enum.VerticalAlignment.Top,
 				})
 
 				-- ScrollingFrame instead of a plain Frame so the subtab row can
 				-- be scrolled horizontally (mouse wheel / drag / touch) whenever
 				-- there are more subtabs than fit in the available width.
-				-- Height = 30 (subtab row) + ScrollBarThickness, so the bar
-				-- itself lives in its own reserved strip below the pills
-				-- instead of overlapping them.
+				-- Height = 30 (subtab row) + extra gap + ScrollBarThickness,
+				-- so the bar lives in its own reserved strip clearly below
+				-- the pills instead of overlapping or hugging them.
 				local SubTabBarScrollThickness = 3
+				local SubTabBarScrollGap = 6
 
 				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
-					Size = UDim2.new(1, 0, 0, 30 + SubTabBarScrollThickness),
+					Size = UDim2.new(1, 0, 0, 30 + SubTabBarScrollGap + SubTabBarScrollThickness),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					LayoutOrder = -1000,
@@ -1889,6 +1894,7 @@ Components.Tab = (function()
 				}, {
 					SubTabBarLayout,
 					New("UIPadding", {
+						PaddingTop = UDim.new(0, 2),
 						PaddingRight = UDim.new(0, 8),
 					}),
 				})
