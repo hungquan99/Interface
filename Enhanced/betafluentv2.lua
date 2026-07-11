@@ -1748,6 +1748,36 @@ Components.Tab = (function()
 		Tab.SubTabs = {}
 		Tab.SubTabCount = 0
 		Tab.SelectedSubTab = nil
+		Tab.SubTabSwitchToken = 0
+
+		function Tab:ScrollSubTabIntoView(SubTabObj)
+			local Bar = Tab.SubTabBarHolder
+			if not Bar or not SubTabObj or not SubTabObj.Button then
+				return
+			end
+
+			local Btn = SubTabObj.Button
+			local BarSize = Bar.AbsoluteSize.X
+			if BarSize <= 0 then
+				return
+			end
+
+			local CurrentX = Bar.CanvasPosition.X
+			local BtnLeft = (Btn.AbsolutePosition.X - Bar.AbsolutePosition.X) + CurrentX
+			local BtnRight = BtnLeft + Btn.AbsoluteSize.X
+
+			local TargetX = CurrentX
+			if BtnLeft < CurrentX then
+				TargetX = BtnLeft - 10
+			elseif BtnRight > CurrentX + BarSize then
+				TargetX = BtnRight - BarSize + 10
+			end
+
+			local MaxCanvasX = math.max(0, Bar.CanvasSize.X.Offset - BarSize)
+			TargetX = math.clamp(TargetX, 0, MaxCanvasX)
+
+			Tab.SubTabBarScrollMotor:setGoal(Spring(TargetX, { frequency = 7 }))
+		end
 
 		function Tab:SelectSubTab(Index)
 			if not Tab.SubTabs[Index] or Tab.SelectedSubTab == Index then
@@ -1763,16 +1793,33 @@ Components.Tab = (function()
 				SubTabObject.SetUnderline(SubTabObject.Selected and 0.1 or 1)
 			end
 
+			Tab.SubTabSwitchToken = Tab.SubTabSwitchToken + 1
+			local Token = Tab.SubTabSwitchToken
+
+			-- Direction: sliding right-to-left when moving to a later subtab,
+			-- left-to-right when moving to an earlier one, like paged content.
+			local Direction = (Previous and Index > Previous) and 1 or -1
+			local SlideDistance = 18
+
 			local NewSubTab = Tab.SubTabs[Index]
 			NewSubTab.Page.Visible = true
+			NewSubTab.SlideMotor:setGoal(Instant(Previous and (Direction * SlideDistance) or 0))
 			NewSubTab.SetPageTransparency(0)
+			NewSubTab.SlideMotor:setGoal(Spring(0, { frequency = 7, dampingRatio = 1 }))
+
+			pcall(function()
+				Tab:ScrollSubTabIntoView(NewSubTab)
+			end)
 
 			if Previous and Tab.SubTabs[Previous] then
 				local OldSubTab = Tab.SubTabs[Previous]
 				OldSubTab.SetPageTransparency(1)
-				task.delay(0.18, function()
-					if Tab.SelectedSubTab ~= Previous then
+				OldSubTab.SlideMotor:setGoal(Spring(-Direction * SlideDistance, { frequency = 7, dampingRatio = 1 }))
+
+				task.delay(0.2, function()
+					if Tab.SubTabSwitchToken == Token and Tab.SelectedSubTab ~= Previous then
 						OldSubTab.Page.Visible = false
+						OldSubTab.SlideMotor:setGoal(Instant(0))
 					end
 				end)
 			end
@@ -1780,20 +1827,47 @@ Components.Tab = (function()
 
 		function Tab:AddSubTab(Title, Icon)
 			if not Tab.SubTabBarHolder then
-				Tab.SubTabBarHolder = New("Frame", {
+				local SubTabBarLayout = New("UIListLayout", {
+					FillDirection = Enum.FillDirection.Horizontal,
+					Padding = UDim.new(0, 6),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+				})
+
+				-- ScrollingFrame instead of a plain Frame so the subtab row can be
+				-- scrolled horizontally (mouse wheel / drag / touch) whenever there
+				-- are more subtabs than fit in the available width.
+				Tab.SubTabBarHolder = New("ScrollingFrame", {
 					Name = "SubTabBar",
 					Size = UDim2.new(1, 0, 0, 30),
 					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
 					LayoutOrder = -1000,
 					Parent = Tab.Container,
+					ScrollingDirection = Enum.ScrollingDirection.X,
+					ScrollBarThickness = 3,
+					ScrollBarImageTransparency = 0.95,
+					ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
+					BottomImage = "rbxassetid://6889812791",
+					MidImage = "rbxassetid://6889812721",
+					TopImage = "rbxassetid://6276641225",
+					CanvasSize = UDim2.fromScale(0, 0),
+					ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 				}, {
-					New("UIListLayout", {
-						FillDirection = Enum.FillDirection.Horizontal,
-						Padding = UDim.new(0, 6),
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						VerticalAlignment = Enum.VerticalAlignment.Center,
+					SubTabBarLayout,
+					New("UIPadding", {
+						PaddingRight = UDim.new(0, 8),
 					}),
 				})
+
+				Creator.AddSignal(SubTabBarLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+					Tab.SubTabBarHolder.CanvasSize = UDim2.new(0, SubTabBarLayout.AbsoluteContentSize.X + 8, 0, 0)
+				end)
+
+				Tab.SubTabBarScrollMotor = Flipper.SingleMotor.new(0)
+				Tab.SubTabBarScrollMotor:onStep(function(Value)
+					Tab.SubTabBarHolder.CanvasPosition = Vector2.new(Value, 0)
+				end)
 			end
 
 			local SubTabIcon = Icon
@@ -1900,15 +1974,30 @@ Components.Tab = (function()
 				Tab:SelectSubTab(SubTabIndex)
 			end)
 
+			-- Page = CanvasGroup so the whole subtree can fade as one (GroupTransparency).
+			-- Inner = the actual content holder. It's the ONLY child of Page and is not
+			-- governed by any UIListLayout on Page itself, so animating its X position
+			-- for the slide transition can never fight/conflict with layout systems,
+			-- and since only X (not Y) moves, it can never affect the AutomaticSize
+			-- height Page reports upward - so no scroll-canvas jitter while animating.
 			SubTab.Page = New("CanvasGroup", {
 				Name = "SubTabPage_" .. Title,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
 				GroupTransparency = 1,
+				ClipsDescendants = true,
 				LayoutOrder = -999 + SubTabIndex,
 				Visible = false,
 				Parent = Tab.Container,
+			})
+
+			SubTab.Inner = New("Frame", {
+				Name = "Inner",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				Parent = SubTab.Page,
 			}, {
 				New("UIListLayout", {
 					Padding = UDim.new(0, 5),
@@ -1918,7 +2007,12 @@ Components.Tab = (function()
 
 			SubTab.PageMotor, SubTab.SetPageTransparency = Creator.SpringMotor(1, SubTab.Page, "GroupTransparency", true)
 
-			SubTab.Container = SubTab.Page
+			SubTab.SlideMotor = Flipper.SingleMotor.new(0)
+			SubTab.SlideMotor:onStep(function(Value)
+				SubTab.Inner.Position = UDim2.new(0, Value, 0, 0)
+			end)
+
+			SubTab.Container = SubTab.Inner
 			SubTab.ScrollFrame = Tab.Container
 
 			function SubTab:AddSection(SectionTitle, SectionIcon)
