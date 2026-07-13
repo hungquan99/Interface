@@ -1514,8 +1514,36 @@ end)()
 Components.Section = (function()
 	local New = Creator.New
 
-	return function(Title, Parent, Icon)
+	-- Same arrow icon + tween Dropdown uses for its open/close animation,
+	-- reused here so a Section's collapse toggle looks/feels identical.
+	local SectionArrowImage = "rbxassetid://10709790948"
+	local SectionArrowAnimInfo = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+	-- Duration scales with how tall the section's content is, so a short
+	-- section and a very long one both feel like they're moving at a
+	-- similar "speed" instead of the long one snapping open/closed in the
+	-- same fixed time. Sine InOut gives an even accel/decel instead of
+	-- Quart's front-loaded motion, which is what was reading as jittery
+	-- on tall sections.
+	local MIN_DURATION = 0.16
+	local MAX_DURATION = 0.4
+	local DURATION_PER_PIXEL = 0.0009
+
+	local function GetSectionAnimInfo(HeightDelta)
+		local Duration = math.clamp(
+			MIN_DURATION + math.abs(HeightDelta) * DURATION_PER_PIXEL,
+			MIN_DURATION,
+			MAX_DURATION
+		)
+		return TweenInfo.new(Duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+	end
+
+	return function(Title, Parent, Icon, DefaultCollapsed)
 		local Section = {}
+		Section.Collapsed = false
+		Section.ContentHeight = 0
+		Section.Animating = false
+		Section.AnimToken = 0
 
 		Section.Layout = New("UIListLayout", {
 			Padding = UDim.new(0, 5),
@@ -1525,13 +1553,13 @@ Components.Section = (function()
 			Size = UDim2.new(1, 0, 0, 26),
 			Position = UDim2.fromOffset(0, 24),
 			BackgroundTransparency = 1,
+			ClipsDescendants = true,
 		}, {
 			Section.Layout,
 		})
 
-		local SectionHeader = New("Frame", {
-			Size = UDim2.new(1, -16, 0, 18),
-			Position = UDim2.fromOffset(0, 2),
+		local HeaderContent = New("Frame", {
+			Size = UDim2.new(1, -20, 1, 0),
 			BackgroundTransparency = 1,
 		}, {
 			New("UIListLayout", {
@@ -1567,6 +1595,29 @@ Components.Section = (function()
 			}),
 		})
 
+		local SectionArrow = New("ImageLabel", {
+			Image = SectionArrowImage,
+			Size = UDim2.fromOffset(14, 14),
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, 0, 0.5, 0),
+			BackgroundTransparency = 1,
+			Rotation = 0,
+			ThemeTag = {
+				ImageColor3 = "SubText",
+			},
+		})
+
+		local SectionHeader = New("TextButton", {
+			Text = "",
+			AutoButtonColor = false,
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.fromOffset(0, 2),
+			BackgroundTransparency = 1,
+		}, {
+			HeaderContent,
+			SectionArrow,
+		})
+
 		Section.Root = New("Frame", {
 			BackgroundTransparency = 1,
 			Size = UDim2.new(1, 0, 0, 26),
@@ -1578,10 +1629,97 @@ Components.Section = (function()
 		})
 
 		Creator.AddSignal(Section.Layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-			Section.Container.Size = UDim2.new(1, 0, 0, Section.Layout.AbsoluteContentSize.Y)
-			Section.Root.Size = UDim2.new(1, 0, 0, Section.Layout.AbsoluteContentSize.Y + 25)
+			Section.ContentHeight = Section.Layout.AbsoluteContentSize.Y
+			if Section.Collapsed or Section.Animating then return end
+			Section.Container.Size = UDim2.new(1, 0, 0, Section.ContentHeight)
+			Section.Root.Size = UDim2.new(1, 0, 0, Section.ContentHeight + 25)
 		end)
 
+		-- Bool = true to collapse, false to expand. NoAnim skips the tween
+		-- (used for setting the initial default state instantly).
+		function Section:SetCollapsed(Bool, NoAnim)
+			Bool = not not Bool
+			if Section.Collapsed == Bool then return end
+			Section.Collapsed = Bool
+
+			local ContainerHeight = Bool and 0 or Section.ContentHeight
+			local RootHeight = Bool and 25 or (Section.ContentHeight + 25)
+			local IconRotation = Bool and 180 or 0
+
+			-- Use the actual current rendered height (not the stale target
+			-- of whatever tween was just cancelled) so the duration reflects
+			-- the real distance about to be covered.
+			local CurrentContainerHeight = Section.Container.Size.Y.Offset
+			local HeightDelta = ContainerHeight - CurrentContainerHeight
+			local SizeAnimInfo = GetSectionAnimInfo(HeightDelta)
+
+			if NoAnim then
+				if Section.ContainerTween then Section.ContainerTween:Cancel() end
+				if Section.RootTween then Section.RootTween:Cancel() end
+				if Section.ArrowTween then Section.ArrowTween:Cancel() end
+				Section.Animating = false
+
+				Section.Container.Size = UDim2.new(1, 0, 0, ContainerHeight)
+				Section.Root.Size = UDim2.new(1, 0, 0, RootHeight)
+				SectionArrow.Rotation = IconRotation
+			else
+				-- Cancel anything still running from a previous rapid
+				-- toggle so the new tween doesn't have to fight it for
+				-- the same property (this was causing the jitter/snap).
+				if Section.ContainerTween then Section.ContainerTween:Cancel() end
+				if Section.RootTween then Section.RootTween:Cancel() end
+				if Section.ArrowTween then Section.ArrowTween:Cancel() end
+
+				Section.Animating = true
+				Section.AnimToken = Section.AnimToken + 1
+				local Token = Section.AnimToken
+
+				Section.ContainerTween = TweenService:Create(Section.Container, SizeAnimInfo, {
+					Size = UDim2.new(1, 0, 0, ContainerHeight),
+				})
+				Section.RootTween = TweenService:Create(Section.Root, SizeAnimInfo, {
+					Size = UDim2.new(1, 0, 0, RootHeight),
+				})
+				Section.ArrowTween = TweenService:Create(SectionArrow, SectionArrowAnimInfo, {
+					Rotation = IconRotation,
+				})
+
+				Section.ContainerTween:Play()
+				Section.RootTween:Play()
+				Section.ArrowTween:Play()
+
+				Section.ContainerTween.Completed:Connect(function()
+					-- Ignore if a newer toggle has already superseded this one.
+					if Section.AnimToken ~= Token then return end
+					Section.Animating = false
+
+					-- If content grew/shrank while this tween was still
+					-- playing and we ended up expanded, snap to the latest
+					-- true content height instead of the (possibly stale)
+					-- height we started animating to.
+					if not Section.Collapsed then
+						Section.Container.Size = UDim2.new(1, 0, 0, Section.ContentHeight)
+						Section.Root.Size = UDim2.new(1, 0, 0, Section.ContentHeight + 25)
+					end
+				end)
+			end
+		end
+
+		function Section:Toggle()
+			Section:SetCollapsed(not Section.Collapsed)
+		end
+
+		function Section:IsCollapsed()
+			return Section.Collapsed
+		end
+
+		Creator.AddSignal(SectionHeader.MouseButton1Click, function()
+			Section:Toggle()
+		end)
+
+		if DefaultCollapsed then
+			Section:SetCollapsed(true, true)
+		end
 
 		if Library.Windows and #Library.Windows > 0 then
 			local currentWindow = Library.Windows[#Library.Windows]
@@ -2185,7 +2323,7 @@ Components.Tab = (function()
 			SubTab.Container = SubTab.Page
 			SubTab.ScrollFrame = Tab.Container
 
-			function SubTab:AddSection(SectionTitle, SectionIcon)
+			function SubTab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed)
 				local Section = { Type = "Section" }
 
 				local Icon = SectionIcon
@@ -2199,9 +2337,12 @@ Components.Tab = (function()
 					end
 				end
 
-				local SectionFrame = Components.Section(SectionTitle, SubTab.Container, Icon)
+				local SectionFrame = Components.Section(SectionTitle, SubTab.Container, Icon, DefaultCollapsed)
 				Section.Container = SectionFrame.Container
 				Section.ScrollFrame = SubTab.ScrollFrame
+				Section.SetCollapsed = SectionFrame.SetCollapsed
+				Section.Toggle = SectionFrame.Toggle
+				Section.IsCollapsed = SectionFrame.IsCollapsed
 
 				setmetatable(Section, Elements)
 				return Section
@@ -2219,7 +2360,7 @@ Components.Tab = (function()
 		end
 		-- =================== End SubTabs (Tabs phụ) ===================
 
-		function Tab:AddSection(SectionTitle, SectionIcon)
+		function Tab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed)
 			local Section = { Type = "Section" }
 
 			local Icon = SectionIcon
@@ -2233,9 +2374,12 @@ Components.Tab = (function()
 				end
 			end
 
-			local SectionFrame = Components.Section(SectionTitle, Tab.Container, Icon)
+			local SectionFrame = Components.Section(SectionTitle, Tab.Container, Icon, DefaultCollapsed)
 			Section.Container = SectionFrame.Container
 			Section.ScrollFrame = Tab.Container
+			Section.SetCollapsed = SectionFrame.SetCollapsed
+			Section.Toggle = SectionFrame.Toggle
+			Section.IsCollapsed = SectionFrame.IsCollapsed
 
 			setmetatable(Section, Elements)
 			return Section
