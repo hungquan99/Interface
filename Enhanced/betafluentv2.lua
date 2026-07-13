@@ -3848,6 +3848,338 @@ end)()
 local ElementsTable = {}
 local AddSignal = Creator.AddSignal
 
+-- Shared helpers, used by both Button and Toggle to build an optional
+-- connected Input section (a secondary title/desc + input box merged
+-- into the same card as the button/toggle above it).
+
+-- Left-aligned Title/Description stack.
+local function BuildLabelStack(Title, Desc, LayoutOrder)
+	local TitleLabel = New("TextLabel", {
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+		Text = Title or "",
+		TextColor3 = Color3.fromRGB(240, 240, 240),
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 14),
+		BackgroundTransparency = 1,
+		LayoutOrder = 1,
+		Visible = Title ~= nil and Title ~= "",
+		ThemeTag = { TextColor3 = "Text" },
+	})
+
+	local DescLabel = New("TextLabel", {
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
+		Text = Desc or "",
+		TextColor3 = Color3.fromRGB(200, 200, 200),
+		TextSize = 12,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 14),
+		LayoutOrder = 2,
+		Visible = Desc ~= nil and Desc ~= "",
+		ThemeTag = { TextColor3 = "SubText" },
+	})
+
+	local Holder = New("Frame", {
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 0),
+		LayoutOrder = LayoutOrder,
+	}, {
+		New("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 2),
+		}),
+		TitleLabel,
+		DescLabel,
+	})
+
+	return Holder, TitleLabel, DescLabel
+end
+
+-- Multi-line "Large" input box (a taller boxed textarea, e.g. for a list
+-- of codes pasted one per line). The box keeps a fixed on-screen height
+-- (InputConfig.Height, default 100) and scrolls once the typed content
+-- has more lines than fit.
+--
+-- Note: Roblox's TextBox does NOT reliably grow with AutomaticSize when
+-- MultiLine is on, so instead of relying on that we measure the wrapped
+-- text ourselves (TextService:GetTextSize) and size the box + canvas by
+-- hand. That's what actually lets you type/paste past the visible area
+-- and scroll to see the rest, instead of appearing to cap out at a few
+-- lines.
+local function BuildLargeInputBox(Parent, InputConfig)
+	local Box = New("TextBox", {
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
+		TextColor3 = Color3.fromRGB(200, 200, 200),
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
+		MultiLine = true,
+		ClearTextOnFocus = false,
+		BackgroundTransparency = 1,
+		Text = InputConfig.Default or "",
+		PlaceholderText = InputConfig.Placeholder or "",
+		Size = UDim2.new(1, 0, 0, 0),
+		Position = UDim2.new(0, 0, 0, 0),
+		ThemeTag = {
+			TextColor3 = "Text",
+			PlaceholderColor3 = "SubText",
+		},
+	})
+
+	local ScrollArea = New("ScrollingFrame", {
+		Size = UDim2.new(1, -16, 1, -12),
+		Position = UDim2.new(0, 8, 0, 6),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, 0),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
+		ScrollBarImageTransparency = 0.75,
+		BottomImage = "rbxassetid://6889812791",
+		MidImage = "rbxassetid://6889812721",
+		TopImage = "rbxassetid://6276641225",
+	}, {
+		Box,
+	})
+
+	local Frame = New("Frame", {
+		Size = UDim2.new(1, 0, 0, InputConfig.Height or 100),
+		BackgroundTransparency = 0.9,
+		ClipsDescendants = true,
+		Parent = Parent,
+		LayoutOrder = 2,
+		ThemeTag = { BackgroundColor3 = "Input" },
+	}, {
+		New("UICorner", { CornerRadius = UDim.new(0, 4) }),
+		New("UIStroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Transparency = 0.5,
+			ThemeTag = { Color = "InElementBorder" },
+		}),
+		ScrollArea,
+	})
+
+	local function UpdateHeight()
+		local width = ScrollArea.AbsoluteSize.X
+		if width <= 0 then return end
+
+		local textForMeasure = Box.Text
+		if textForMeasure == "" then
+			textForMeasure = (Box.PlaceholderText ~= "" and Box.PlaceholderText) or " "
+		end
+
+		local measured = TextService:GetTextSize(
+			textForMeasure,
+			Box.TextSize,
+			Box.Font,
+			Vector2.new(width, math.huge)
+		)
+
+		local height = math.max(measured.Y + 6, ScrollArea.AbsoluteSize.Y)
+		Box.Size = UDim2.new(1, 0, 0, height)
+		ScrollArea.CanvasSize = UDim2.fromOffset(0, height)
+	end
+
+	task.defer(UpdateHeight)
+	Creator.AddSignal(Box:GetPropertyChangedSignal("Text"), UpdateHeight)
+	Creator.AddSignal(ScrollArea:GetPropertyChangedSignal("AbsoluteSize"), UpdateHeight)
+
+	return Frame, Box
+end
+
+-- Shared card+input-section builder used by Button and Toggle when they're
+-- given a Config.Input. Returns the outer card, the header row (a plain
+-- Frame to parent your button/toggle-specific controls into), the header
+-- title/desc labels, and (if an input box was built) its frame + textbox.
+local function BuildConnectedCard(Parent, Config, InputConfig, HeaderRightPad)
+	local OuterCard = New("Frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 0.89,
+		BackgroundColor3 = Color3.fromRGB(130, 130, 130),
+		Parent = Parent,
+		Visible = Config.Visible and Config.Visible or true,
+		LayoutOrder = 7,
+		ThemeTag = {
+			BackgroundColor3 = "Element",
+			BackgroundTransparency = "ElementTransparency",
+		},
+	}, {
+		New("UICorner", { CornerRadius = UDim.new(0, 4) }),
+		New("UIStroke", {
+			Transparency = 0.5,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ThemeTag = { Color = "ElementBorder" },
+		}),
+		New("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	local HeaderLabelHolder, HeaderTitleLabel, HeaderDescLabel = BuildLabelStack(Config.Title, Config.Description, 1)
+	HeaderLabelHolder.Size = UDim2.new(1, -HeaderRightPad, 0, 0)
+
+	local HeaderRow = New("TextButton", {
+		Text = "",
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0),
+		BackgroundTransparency = 1,
+		Parent = OuterCard,
+		LayoutOrder = 1,
+	}, {
+		New("UIPadding", {
+			PaddingTop = UDim.new(0, 13),
+			PaddingBottom = UDim.new(0, 8),
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 10),
+		}),
+		HeaderLabelHolder,
+	})
+
+	New("Frame", {
+		Size = UDim2.new(1, -20, 0, 1),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 0.5,
+		Parent = OuterCard,
+		LayoutOrder = 2,
+		ThemeTag = { BackgroundColor3 = "ElementBorder" },
+	})
+
+	local InputSection = New("Frame", {
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0),
+		BackgroundTransparency = 1,
+		Parent = OuterCard,
+		LayoutOrder = 3,
+	}, {
+		New("UIPadding", {
+			PaddingTop = UDim.new(0, 5),
+			PaddingBottom = UDim.new(0, 13),
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 10),
+		}),
+		New("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 6),
+		}),
+	})
+
+	if (InputConfig.Title and InputConfig.Title ~= "") or (InputConfig.Description and InputConfig.Description ~= "") then
+		local InputLabelHolder = BuildLabelStack(InputConfig.Title, InputConfig.Description, 1)
+		InputLabelHolder.Parent = InputSection
+	end
+
+	local InputBoxFrame, InputBox
+	if InputConfig.Size == "Large" then
+		InputBoxFrame, InputBox = BuildLargeInputBox(InputSection, InputConfig)
+	else
+		local Textbox = Components.Textbox(InputSection, true)
+		Textbox.Frame.Size = UDim2.new(1, 0, 0, 30)
+		Textbox.Frame.LayoutOrder = 2
+		Textbox.Input.MultiLine = false
+		Textbox.Input.Text = InputConfig.Default or ""
+		Textbox.Input.PlaceholderText = InputConfig.Placeholder or ""
+		InputBoxFrame, InputBox = Textbox.Frame, Textbox.Input
+	end
+
+	-- Same hover/press feedback as a normal Element: brighten on hover,
+	-- dim briefly on click, driven off the clickable header row but
+	-- applied to the whole card so it reads as one connected element.
+	do
+		local _, SetTransparency = Creator.SpringMotor(
+			Creator.GetThemeProperty("ElementTransparency"),
+			OuterCard,
+			"BackgroundTransparency",
+			false,
+			true
+		)
+
+		Creator.AddSignal(HeaderRow.MouseEnter, function()
+			SetTransparency(Creator.GetThemeProperty("ElementTransparency") - Creator.GetThemeProperty("HoverChange"))
+		end)
+		Creator.AddSignal(HeaderRow.MouseLeave, function()
+			SetTransparency(Creator.GetThemeProperty("ElementTransparency"))
+		end)
+		Creator.AddSignal(HeaderRow.MouseButton1Down, function()
+			SetTransparency(Creator.GetThemeProperty("ElementTransparency") + Creator.GetThemeProperty("HoverChange"))
+		end)
+		Creator.AddSignal(HeaderRow.MouseButton1Up, function()
+			SetTransparency(Creator.GetThemeProperty("ElementTransparency") - Creator.GetThemeProperty("HoverChange"))
+		end)
+	end
+
+	return OuterCard, HeaderRow, HeaderTitleLabel, HeaderDescLabel, InputBoxFrame, InputBox
+end
+
+-- Wires up InputValue / SetInputValue / OnInputChanged on `Target` (a
+-- Button or Toggle handle), backed by the given input Config/box.
+local function HookConnectedInput(Target, InputConfig, InputBoxFrame, InputBox)
+	InputConfig.Callback = InputConfig.Callback or function(Text) end
+	if InputConfig.Finished == nil then
+		-- Large (multi-line) boxes default to updating on focus-lost rather
+		-- than every keystroke, since reassigning .Text mid-typing resets
+		-- the cursor and made multi-line entry feel capped/glitchy.
+		InputConfig.Finished = (InputConfig.Size == "Large")
+	end
+
+	Target.InputValue = InputConfig.Default or ""
+	Target.Input = {
+		Frame = InputBoxFrame,
+		Box = InputBox,
+	}
+
+	function Target:SetInputValue(Text)
+		Text = Text or ""
+		-- Multi-line text is only meaningful for "Large" inputs - a Small
+		-- box always collapses to a single line, even if newlines were
+		-- pasted in.
+		if InputConfig.Size ~= "Large" and Text:find("[\r\n]") then
+			Text = Text:gsub("[\r\n]+", " ")
+		end
+		if InputConfig.MaxLength and #Text > InputConfig.MaxLength then
+			Text = Text:sub(1, InputConfig.MaxLength)
+		end
+		if InputConfig.Numeric and Text:len() > 0 and not tonumber(Text) then
+			Text = Target.InputValue
+		end
+
+		Target.InputValue = Text
+		-- Only touch .Text when it actually needs to change (e.g. it got
+		-- truncated) - reassigning it to its own value resets the TextBox's
+		-- cursor position, which is disruptive while the user is typing.
+		if InputBox.Text ~= Text then
+			InputBox.Text = Text
+		end
+
+		Library:SafeCallback(InputConfig.Callback, Target.InputValue)
+		Library:SafeCallback(Target.InputChanged, Target.InputValue)
+	end
+
+	function Target:OnInputChanged(Func)
+		Target.InputChanged = Func
+		Func(Target.InputValue)
+	end
+
+	if InputConfig.Finished then
+		Creator.AddSignal(InputBox.FocusLost, function(enter)
+			if not enter then return end
+			Target:SetInputValue(InputBox.Text)
+		end)
+	else
+		Creator.AddSignal(InputBox:GetPropertyChangedSignal("Text"), function()
+			Target:SetInputValue(InputBox.Text)
+		end)
+	end
+end
+
 ElementsTable.Button = (function()
 	local Element = {}
 	Element.__index = Element
@@ -3857,25 +4189,78 @@ ElementsTable.Button = (function()
 		assert(Config.Title, "Button - Missing Title")
 		Config.Callback = Config.Callback or function() end
 
-		local ButtonFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
+		-- Optional connected Input: pass `Input = true` for defaults, or a
+		-- table to customize it. `Input.Size` can be "Small" (default, a
+		-- normal single-line box) or "Large" (a taller multi-line box).
+		local InputConfig = Config.Input
+		if InputConfig == true then InputConfig = {} end
+		local HasInput = type(InputConfig) == "table"
+		if HasInput then
+			InputConfig.Size = (InputConfig.Size == "Large") and "Large" or "Small"
+		end
 
-		local ButtonIco = New("ImageLabel", {
+		if not HasInput then
+			local ButtonFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
+
+			New("ImageLabel", {
+				Image = "rbxassetid://10709791437",
+				Size = UDim2.fromOffset(16, 16),
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -10, 0.5, 0),
+				BackgroundTransparency = 1,
+				Parent = ButtonFrame.Frame,
+				ThemeTag = {
+					ImageColor3 = "Text",
+				},
+			})
+
+			Creator.AddSignal(ButtonFrame.Frame.MouseButton1Click, function()
+				Library:SafeCallback(Config.Callback)
+			end)
+
+			return ButtonFrame
+		end
+
+		-- Connected mode: button row + divider + input section, merged into
+		-- one card, matching the same look Toggle uses with Config.Input.
+		local OuterCard, HeaderRow, HeaderTitleLabel, HeaderDescLabel, InputBoxFrame, InputBox =
+			BuildConnectedCard(self.Container, Config, InputConfig, 34)
+
+		New("ImageLabel", {
 			Image = "rbxassetid://10709791437",
 			Size = UDim2.fromOffset(16, 16),
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -10, 0.5, 0),
 			BackgroundTransparency = 1,
-			Parent = ButtonFrame.Frame,
+			Parent = HeaderRow,
 			ThemeTag = {
 				ImageColor3 = "Text",
 			},
 		})
 
-		Creator.AddSignal(ButtonFrame.Frame.MouseButton1Click, function()
+		Creator.AddSignal(HeaderRow.MouseButton1Click, function()
 			Library:SafeCallback(Config.Callback)
 		end)
 
-		return ButtonFrame
+		local Button = { Frame = OuterCard, Type = "Button" }
+
+		function Button:SetTitle(Set)
+			HeaderTitleLabel.Text = Set
+			HeaderTitleLabel.Visible = Set ~= nil and Set ~= ""
+		end
+
+		function Button:SetDesc(Set)
+			HeaderDescLabel.Text = Set or ""
+			HeaderDescLabel.Visible = Set ~= nil and Set ~= ""
+		end
+
+		function Button:Visible(Bool)
+			OuterCard.Visible = Bool
+		end
+
+		HookConnectedInput(Button, InputConfig, InputBoxFrame, InputBox)
+
+		return Button
 	end
 
 	return Element
@@ -3894,13 +4279,15 @@ ElementsTable.Toggle = (function()
 			Type = "Toggle",
 		}
 
-		local ToggleFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
-		ToggleFrame.DescLabel.Size = UDim2.new(1, -54, 0, 14)
-
-		Toggle.SetTitle = ToggleFrame.SetTitle
-		Toggle.SetDesc = ToggleFrame.SetDesc
-		Toggle.Visible = ToggleFrame.Visible
-		Toggle.Elements = ToggleFrame
+		-- Optional connected Input: pass `Input = true` for defaults, or a
+		-- table to customize it. `Input.Size` can be "Small" (default, a
+		-- normal single-line box) or "Large" (a taller multi-line box).
+		local InputConfig = Config.Input
+		if InputConfig == true then InputConfig = {} end
+		local HasInput = type(InputConfig) == "table"
+		if HasInput then
+			InputConfig.Size = (InputConfig.Size == "Large") and "Large" or "Small"
+		end
 
 		local ToggleCircle = New("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
@@ -3924,7 +4311,6 @@ ElementsTable.Toggle = (function()
 			Size = UDim2.fromOffset(36, 18),
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -10, 0.5, 0),
-			Parent = ToggleFrame.Frame,
 			BackgroundTransparency = 1,
 			ThemeTag = {
 				BackgroundColor3 = "Accent",
@@ -3936,6 +4322,48 @@ ElementsTable.Toggle = (function()
 			ToggleBorder,
 			ToggleCircle,
 		})
+
+		local ToggleFrame, HeaderButton, InputBoxFrame, InputBox, HeaderTitleLabel, HeaderDescLabel
+
+		if not HasInput then
+			-- Original behaviour: a single self-contained row/card.
+			ToggleFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
+			ToggleFrame.DescLabel.Size = UDim2.new(1, -54, 0, 14)
+			ToggleSlider.Parent = ToggleFrame.Frame
+			HeaderButton = ToggleFrame.Frame
+		else
+			-- Connected mode: toggle row + divider + input section, merged
+			-- into one card instead of two separate boxes.
+			local OuterCard
+			OuterCard, HeaderButton, HeaderTitleLabel, HeaderDescLabel, InputBoxFrame, InputBox =
+				BuildConnectedCard(self.Container, Config, InputConfig, 54)
+			ToggleSlider.Parent = HeaderButton
+			ToggleFrame = { Frame = OuterCard }
+		end
+
+		Toggle.Elements = ToggleFrame
+
+		function Toggle:SetTitle(Set)
+			if HasInput then
+				HeaderTitleLabel.Text = Set
+				HeaderTitleLabel.Visible = Set ~= nil and Set ~= ""
+			else
+				ToggleFrame.SetTitle(Set)
+			end
+		end
+
+		function Toggle:SetDesc(Set)
+			if HasInput then
+				HeaderDescLabel.Text = Set or ""
+				HeaderDescLabel.Visible = Set ~= nil and Set ~= ""
+			else
+				ToggleFrame.SetDesc(Set)
+			end
+		end
+
+		function Toggle:Visible(Bool)
+			ToggleFrame.Frame.Visible = Bool
+		end
 
 		function Toggle:OnChanged(Func)
 			Toggle.Changed = Func
@@ -3965,15 +4393,19 @@ ElementsTable.Toggle = (function()
 		end
 
 		function Toggle:Destroy()
-			ToggleFrame:Destroy()
+			ToggleFrame.Frame:Destroy()
 			Library.Options[Idx] = nil
 		end
 
-		Creator.AddSignal(ToggleFrame.Frame.MouseButton1Click, function()
+		Creator.AddSignal(HeaderButton.MouseButton1Click, function()
 			Toggle:SetValue(not Toggle.Value)
 		end)
 
 		Toggle:SetValue(Toggle.Value)
+
+		if HasInput then
+			HookConnectedInput(Toggle, InputConfig, InputBoxFrame, InputBox)
+		end
 
 		Library.Options[Idx] = Toggle
 		return Toggle
