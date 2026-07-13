@@ -3108,11 +3108,82 @@ Components.Window = (function()
 			}),
 		})
 
+		-- Purely visual "drag to resize" affordance - a single curved arc
+		-- tucked into the corner, echoing the window's own rounded corner,
+		-- like in the reference image. Built without any external image
+		-- asset: a full circular ring (UICorner radius 1,0 + UIStroke)
+		-- gets its center pinned to the clip box's top-left point, and
+		-- ClipsDescendants only lets the bottom-right quarter of that ring
+		-- show through - which renders as a single smooth arc curving
+		-- from the top edge to the right edge of the box.
+		-- ResizeStartFrame itself is still the (invisible-fill) resize
+		-- hitbox; this is purely decorative on top of it.
+		local ResizeGripRingDiameter = 26
+		local ResizeGripBoxSize = 26
+		-- The window's visible rounded edge already curves inward before
+		-- the theoretical square corner point, so anchoring the grip
+		-- fully at that square point (Outset = BoxSize) left a visible
+		-- gap between the arc and the window's actual edge. Pulling it
+		-- in by a small overlap closes that gap while keeping most of the
+		-- grip outside the window, like the WindUI reference.
+		local ResizeGripOverlap = 8
+		local ResizeGripOutset = ResizeGripBoxSize - ResizeGripOverlap
+
 		local ResizeStartFrame = New("Frame", {
-			Size = UDim2.fromOffset(20, 20),
+			Name = "ResizeGrip",
+			Size = UDim2.fromOffset(ResizeGripBoxSize, ResizeGripBoxSize),
 			BackgroundTransparency = 1,
-			Position = UDim2.new(1, -20, 1, -2),
+			ClipsDescendants = true,
+			Position = UDim2.new(
+				1,
+				-ResizeGripBoxSize + ResizeGripOutset,
+				1,
+				-ResizeGripBoxSize + ResizeGripOutset
+			),
+		}, {
+			New("Frame", {
+				Name = "GripArc",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(0, 0),
+				Size = UDim2.fromOffset(ResizeGripRingDiameter, ResizeGripRingDiameter),
+				BackgroundTransparency = 1,
+			}, {
+				New("UICorner", {
+					CornerRadius = UDim.new(1, 0),
+				}),
+				New("UIStroke", {
+					Name = "GripStroke",
+					Thickness = 4,
+					-- Matches BottomDragHandle's color/transparency style
+					-- (TitleBarLine, 0.55 base / 0.2 hover) so the two
+					-- drag affordances read as the same design language.
+					Transparency = 0.55,
+					ThemeTag = {
+						Color = "TitleBarLine",
+					},
+				}),
+			}),
 		})
+
+		-- Hover effect: brighter + thicker on mouse-over, same SpringMotor
+		-- pattern the rest of the library uses for hover states.
+		local GripStroke = ResizeStartFrame.GripArc.GripStroke
+		local GripBaseTransparency, GripHoverTransparency = 0.55, 0.2
+		local GripBaseThickness, GripHoverThickness = 4, 4.75
+
+		local GripTransparencyMotor, SetGripTransparency =
+			Creator.SpringMotor(GripBaseTransparency, GripStroke, "Transparency")
+		local GripThicknessMotor, SetGripThickness = Creator.SpringMotor(GripBaseThickness, GripStroke, "Thickness")
+
+		Creator.AddSignal(ResizeStartFrame.MouseEnter, function()
+			SetGripTransparency(GripHoverTransparency)
+			SetGripThickness(GripHoverThickness)
+		end)
+		Creator.AddSignal(ResizeStartFrame.MouseLeave, function()
+			SetGripTransparency(GripBaseTransparency)
+			SetGripThickness(GripBaseThickness)
+		end)
+
 
 		Window.TabHolder = New("ScrollingFrame", {
 			Size = UDim2.new(1, 0, 1, -45),
@@ -3285,6 +3356,29 @@ Components.Window = (function()
 			Window.ContainerHolder
 		})
 
+		-- Purely-for-looks bottom drag handle (like the WindUI reference)
+		-- - fills the empty space just below the window. Sits fully
+		-- outside the window's bottom edge (Window.Root doesn't clip its
+		-- children), same treatment as the resize grip. It also drags the
+		-- window (bound below, same as the title bar), so it's a small
+		-- bonus, but the main point is visual: it stops the area right
+		-- below the window from looking bare.
+		local BottomDragHandle = New("Frame", {
+			Name = "BottomDragHandle",
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 1, 6),
+			Size = UDim2.fromOffset(56, 4),
+			BackgroundTransparency = 0.55,
+			BorderSizePixel = 0,
+			ThemeTag = {
+				BackgroundColor3 = "TitleBarLine",
+			},
+		}, {
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		})
+
 		Window.Root = New("Frame", {
 			BackgroundTransparency = 1,
 			Size = Window.Size,
@@ -3296,6 +3390,7 @@ Components.Window = (function()
 			Window.ContainerCanvas,
 			TabFrame,
 			ResizeStartFrame,
+			BottomDragHandle,
 		})
 
 		CenterWindow()
@@ -3492,37 +3587,53 @@ Components.Window = (function()
 			end
 		end
 
-		Creator.AddSignal(Window.TitleBar.Frame.InputBegan, function(Input)
-			if
-				Input.UserInputType == Enum.UserInputType.MouseButton1
-				or Input.UserInputType == Enum.UserInputType.Touch
-			then
-				Dragging = true
-				MousePos = Input.Position
-				StartPos = Window.Root.Position
+		-- Same drag logic as Window.TitleBar.Frame below, factored out so
+		-- both the title bar and the new bottom handle can drag the window.
+		local function BindWindowDrag(DragFrame)
+			Creator.AddSignal(DragFrame.InputBegan, function(Input)
+				if
+					Input.UserInputType == Enum.UserInputType.MouseButton1
+					or Input.UserInputType == Enum.UserInputType.Touch
+				then
+					Dragging = true
+					MousePos = Input.Position
+					StartPos = Window.Root.Position
 
-				if Window.Maximized then
-					StartPos = UDim2.fromOffset(
-						Mouse.X - (Mouse.X * ((OldSizeX - 100) / Window.Root.AbsoluteSize.X)),
-						Mouse.Y - (Mouse.Y * (OldSizeY / Window.Root.AbsoluteSize.Y))
-					)
-				end
-
-				Input.Changed:Connect(function()
-					if Input.UserInputState == Enum.UserInputState.End then
-						Dragging = false
+					if Window.Maximized then
+						StartPos = UDim2.fromOffset(
+							Mouse.X - (Mouse.X * ((OldSizeX - 100) / Window.Root.AbsoluteSize.X)),
+							Mouse.Y - (Mouse.Y * (OldSizeY / Window.Root.AbsoluteSize.Y))
+						)
 					end
-				end)
-			end
-		end)
 
-		Creator.AddSignal(Window.TitleBar.Frame.InputChanged, function(Input)
-			if
-				Input.UserInputType == Enum.UserInputType.MouseMovement
-				or Input.UserInputType == Enum.UserInputType.Touch
-			then
-				DragInput = Input
-			end
+					Input.Changed:Connect(function()
+						if Input.UserInputState == Enum.UserInputState.End then
+							Dragging = false
+						end
+					end)
+				end
+			end)
+
+			Creator.AddSignal(DragFrame.InputChanged, function(Input)
+				if
+					Input.UserInputType == Enum.UserInputType.MouseMovement
+					or Input.UserInputType == Enum.UserInputType.Touch
+				then
+					DragInput = Input
+				end
+			end)
+		end
+
+		BindWindowDrag(Window.TitleBar.Frame)
+		BindWindowDrag(BottomDragHandle)
+
+		local BottomDragHandleMotor, SetBottomDragHandleTransparency =
+			Creator.SpringMotor(0.55, BottomDragHandle, "BackgroundTransparency")
+		Creator.AddSignal(BottomDragHandle.MouseEnter, function()
+			SetBottomDragHandleTransparency(0.2)
+		end)
+		Creator.AddSignal(BottomDragHandle.MouseLeave, function()
+			SetBottomDragHandleTransparency(0.55)
 		end)
 
 		Creator.AddSignal(ResizeStartFrame.InputBegan, function(Input)
