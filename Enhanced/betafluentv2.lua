@@ -2323,8 +2323,8 @@ Components.Tab = (function()
 			SubTab.Container = SubTab.Page
 			SubTab.ScrollFrame = Tab.Container
 
-			function SubTab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed)
-				local Section = { Type = "Section" }
+			function SubTab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed, Idx)
+				local Section = { Type = "Section", Idx = Idx }
 
 				local Icon = SectionIcon
 				if not fischbypass then
@@ -2344,7 +2344,17 @@ Components.Tab = (function()
 				Section.Toggle = SectionFrame.Toggle
 				Section.IsCollapsed = SectionFrame.IsCollapsed
 
+				-- Same optional Idx-based persistence as Tab:AddSection above.
+				function Section:SetValue(Value)
+					Section:SetCollapsed(not not Value, true)
+				end
+
 				setmetatable(Section, Elements)
+
+				if Idx then
+					Library.Options[Idx] = Section
+				end
+
 				return Section
 			end
 
@@ -2360,8 +2370,8 @@ Components.Tab = (function()
 		end
 		-- =================== End SubTabs (Tabs phụ) ===================
 
-		function Tab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed)
-			local Section = { Type = "Section" }
+		function Tab:AddSection(SectionTitle, SectionIcon, DefaultCollapsed, Idx)
+			local Section = { Type = "Section", Idx = Idx }
 
 			local Icon = SectionIcon
 			if not fischbypass then 
@@ -2381,7 +2391,21 @@ Components.Tab = (function()
 			Section.Toggle = SectionFrame.Toggle
 			Section.IsCollapsed = SectionFrame.IsCollapsed
 
+			-- Optional persistence: pass an Idx (same idea as AddToggle,
+			-- AddSlider, etc.) to let SaveManager remember whether this
+			-- section was left collapsed or expanded. NoAnim = true since
+			-- this only ever runs when a config is being loaded, not from
+			-- a user click - it should snap straight to the saved state.
+			function Section:SetValue(Value)
+				Section:SetCollapsed(not not Value, true)
+			end
+
 			setmetatable(Section, Elements)
+
+			if Idx then
+				Library.Options[Idx] = Section
+			end
+
 			return Section
 		end
 
