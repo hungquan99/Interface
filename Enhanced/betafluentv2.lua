@@ -3187,19 +3187,24 @@ Components.TitleBar = (function()
 						Title = "Yes",
 						Callback = function()
 							-- quick shrink-to-center before actually tearing the
-							-- interface down, so closing doesn't just hard-cut
+							-- interface down, so closing doesn't just hard-cut.
+							-- Scales via UIScale (not a real Size tween) so
+							-- nothing inside re-flows/garbles while it shrinks.
 							pcall(function()
 								local Root = Library.Window and Library.Window.Root
-								if Root then
+								local RootScale = Library.Window and Library.Window.RootScale
+								if Root and RootScale then
 									local SizeX, SizeY = Root.AbsoluteSize.X, Root.AbsoluteSize.Y
 									local PosX, PosY = Root.Position.X.Offset, Root.Position.Y.Offset
 									TweenService:Create(
+										RootScale,
+										TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+										{ Scale = 0 }
+									):Play()
+									TweenService:Create(
 										Root,
 										TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
-										{
-											Size = UDim2.fromOffset(0, 0),
-											Position = UDim2.fromOffset(PosX + SizeX / 2, PosY + SizeY / 2),
-										}
+										{ Position = UDim2.fromOffset(PosX + SizeX / 2, PosY + SizeY / 2) }
 									):Play()
 								end
 							end)
@@ -3556,6 +3561,17 @@ Components.Window = (function()
 			BottomDragHandle,
 		})
 
+		-- Used only to visually scale the whole window for the
+		-- minimize/restore animation (see Window:Minimize below). Scaling
+		-- via UIScale doesn't touch Window.Root's real Size, so nothing
+		-- inside (UIListLayouts, ScrollingFrames, text) has to re-flow
+		-- mid-animation - it just renders smaller, which is what keeps the
+		-- shrink looking clean instead of garbled.
+		Window.RootScale = New("UIScale", {
+			Scale = 0,
+			Parent = Window.Root,
+		})
+
 		CenterWindow()
 		Creator.AddSignal(Camera:GetPropertyChangedSignal("ViewportSize"), function()
 			CenterWindow()
@@ -3695,6 +3711,43 @@ Components.Window = (function()
 			task.wait(_G.CDDrag / 10)
 			Window.Root.Position = UDim2.new(0, values.X, 0, values.Y)
 		end)
+
+		-- Drives the minimize/restore visual (see Window:Minimize). Keeps
+		-- Window.Root's AnchorPoint at the default (0, 0) the whole time -
+		-- everything else (dragging, resizing, CenterWindow) assumes a
+		-- top-left anchor, so instead of touching AnchorPoint we manually
+		-- slide Position toward the window's own center as Scale shrinks,
+		-- and back out as it grows. Window.MinimizeAnimBase holds the
+		-- true top-left position/size captured right before the shrink
+		-- starts; it's nil the rest of the time, so this is a no-op when
+		-- nothing is minimizing.
+		local RootScaleMotor = Flipper.SingleMotor.new(0)
+		RootScaleMotor:onStep(function(Value)
+			Window.RootScale.Scale = Value
+
+			local Base = Window.MinimizeAnimBase
+			if Base then
+				Window.Root.Position = UDim2.fromOffset(
+					Base.X + Base.SizeX * (1 - Value) / 2,
+					Base.Y + Base.SizeY * (1 - Value) / 2
+				)
+			end
+		end)
+
+		-- Fires exactly when the spring actually settles (not after a
+		-- guessed delay), so the last frame of the animation lines up
+		-- perfectly instead of the Position-follow cutting off a beat
+		-- early/late and reading as a small snap at the end. Covers all
+		-- three uses of this motor (load-in, minimize, restore) since
+		-- Window.Minimized reflects whichever one just finished.
+		RootScaleMotor:onComplete(function()
+			if Window.Minimized then
+				Window.Root.Visible = false
+			else
+				Window.MinimizeAnimBase = nil
+			end
+		end)
+		Window.RootScaleMotor = RootScaleMotor
 
 		local LastValue = 0
 		local LastTime = 0
@@ -3877,46 +3930,37 @@ Components.Window = (function()
 				end
 			end
 
-			-- Animate the shrink/grow instead of just flipping Visible - reuses
-			-- the same spring motors that already drive resize/maximize, just
-			-- aimed at a point (the window's own center) instead of a size.
-			Window.MinimizeAnimToken = (Window.MinimizeAnimToken or 0) + 1
-			local Token = Window.MinimizeAnimToken
-
+			-- Scale-only shrink/grow (UIScale), not a real Size tween: a real
+			-- Size tween forces every UIListLayout/ScrollingFrame/TextLabel
+			-- inside to re-flow at each in-between size, which is what caused
+			-- the garbled, overlapping look mid-animation. UIScale just
+			-- scales the already-laid-out frame visually, so nothing
+			-- reflows - clean shrink no matter how much content is inside.
+			--
+			-- Hiding Root / clearing MinimizeAnimBase happens in
+			-- RootScaleMotor's onComplete handler (set up above) instead of
+			-- a guessed task.delay, so it lines up with exactly when the
+			-- spring finishes - no more snap on the last frame. setGoal
+			-- also means a mid-animation re-toggle just redirects the same
+			-- spring, no stale timers to guard against.
 			if Window.Minimized then
-				local FromSizeX, FromSizeY = SizeMotor:getValue().X, SizeMotor:getValue().Y
-				local FromPosX, FromPosY = PosMotor:getValue().X, PosMotor:getValue().Y
+				-- Capture the true top-left position/size right before the
+				-- shrink starts - RootScaleMotor's onStep uses this to slide
+				-- Position toward center as Scale drops, so it shrinks in
+				-- place instead of shrinking toward the top-left corner.
+				Window.MinimizeAnimBase = {
+					X = Window.Root.Position.X.Offset,
+					Y = Window.Root.Position.Y.Offset,
+					SizeX = Window.Root.AbsoluteSize.X,
+					SizeY = Window.Root.AbsoluteSize.Y,
+				}
 
-				SizeMotor:setGoal({
-					X = Spring(0, { frequency = 6 }),
-					Y = Spring(0, { frequency = 6 }),
-				})
-				PosMotor:setGoal({
-					X = Spring(FromPosX + FromSizeX / 2, { frequency = 6 }),
-					Y = Spring(FromPosY + FromSizeY / 2, { frequency = 6 }),
-				})
-
-				-- Keep it visible (and thus interactive-looking) throughout the
-				-- shrink, and only actually hide once it's finished collapsing -
-				-- guarded by the token in case Minimize gets toggled again
-				-- before this finishes.
-				task.delay(0.28, function()
-					if Token ~= Window.MinimizeAnimToken then return end
-					if Window.Minimized then
-						Window.Root.Visible = false
-					end
-				end)
+				-- Keep it visible (and thus interactive-looking) throughout
+				-- the shrink; onComplete hides it once fully collapsed.
+				Window.RootScaleMotor:setGoal(Spring(0, { frequency = 6 }))
 			else
 				Window.Root.Visible = true
-
-				SizeMotor:setGoal({
-					X = Spring(Window.Size.X.Offset, { frequency = 6 }),
-					Y = Spring(Window.Size.Y.Offset, { frequency = 6 }),
-				})
-				PosMotor:setGoal({
-					X = Spring(Window.Position.X.Offset, { frequency = 6 }),
-					Y = Spring(Window.Position.Y.Offset, { frequency = 6 }),
-				})
+				Window.RootScaleMotor:setGoal(Spring(1, { frequency = 6 }))
 			end
 
 			if not MinimizeNotif then
@@ -4026,25 +4070,21 @@ Components.Window = (function()
 		end)
 
 		-- Entrance animation: pop in from a point at the window's own
-		-- center and spring out to its real size/position - same visual
-		-- language as the minimize/close shrink-to-point animations.
+		-- center and spring out to full scale. Uses the same UIScale-based
+		-- approach as minimize/restore (not a real Size tween), so nothing
+		-- inside re-flows/garbles while the window is popping in - Root's
+		-- real Size/Position stay at their final values the whole time,
+		-- only the visual scale animates. RootScaleMotor's onComplete
+		-- handler clears MinimizeAnimBase once this settles.
 		do
-			local TargetSizeX, TargetSizeY = Window.Size.X.Offset, Window.Size.Y.Offset
-			local TargetPosX, TargetPosY = Window.Position.X.Offset, Window.Position.Y.Offset
-			local CenterX = TargetPosX + TargetSizeX / 2
-			local CenterY = TargetPosY + TargetSizeY / 2
+			Window.MinimizeAnimBase = {
+				X = Window.Root.Position.X.Offset,
+				Y = Window.Root.Position.Y.Offset,
+				SizeX = Window.Root.Size.X.Offset,
+				SizeY = Window.Root.Size.Y.Offset,
+			}
 
-			SizeMotor:setGoal({ X = Instant(0), Y = Instant(0) })
-			PosMotor:setGoal({ X = Instant(CenterX), Y = Instant(CenterY) })
-
-			SizeMotor:setGoal({
-				X = Spring(TargetSizeX, { frequency = 5 }),
-				Y = Spring(TargetSizeY, { frequency = 5 }),
-			})
-			PosMotor:setGoal({
-				X = Spring(TargetPosX, { frequency = 5 }),
-				Y = Spring(TargetPosY, { frequency = 5 }),
-			})
+			Window.RootScaleMotor:setGoal(Spring(1, { frequency = 5 }))
 		end
 
 		return Window
