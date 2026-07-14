@@ -3186,7 +3186,26 @@ Components.TitleBar = (function()
 					{
 						Title = "Yes",
 						Callback = function()
-							Library:Destroy()
+							-- quick shrink-to-center before actually tearing the
+							-- interface down, so closing doesn't just hard-cut
+							pcall(function()
+								local Root = Library.Window and Library.Window.Root
+								if Root then
+									local SizeX, SizeY = Root.AbsoluteSize.X, Root.AbsoluteSize.Y
+									local PosX, PosY = Root.Position.X.Offset, Root.Position.Y.Offset
+									TweenService:Create(
+										Root,
+										TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+										{
+											Size = UDim2.fromOffset(0, 0),
+											Position = UDim2.fromOffset(PosX + SizeX / 2, PosY + SizeY / 2),
+										}
+									):Play()
+								end
+							end)
+							task.delay(0.18, function()
+								Library:Destroy()
+							end)
 						end,
 					},
 					{
@@ -3849,7 +3868,6 @@ Components.Window = (function()
 
 		function Window:Minimize()
 			Window.Minimized = not Window.Minimized
-			Window.Root.Visible = not Window.Minimized
 
 			for _, Option in next, Library.Options do
 				if Option and Option.Type == "Dropdown" and Option.Opened then
@@ -3858,6 +3876,49 @@ Components.Window = (function()
 					end)
 				end
 			end
+
+			-- Animate the shrink/grow instead of just flipping Visible - reuses
+			-- the same spring motors that already drive resize/maximize, just
+			-- aimed at a point (the window's own center) instead of a size.
+			Window.MinimizeAnimToken = (Window.MinimizeAnimToken or 0) + 1
+			local Token = Window.MinimizeAnimToken
+
+			if Window.Minimized then
+				local FromSizeX, FromSizeY = SizeMotor:getValue().X, SizeMotor:getValue().Y
+				local FromPosX, FromPosY = PosMotor:getValue().X, PosMotor:getValue().Y
+
+				SizeMotor:setGoal({
+					X = Spring(0, { frequency = 6 }),
+					Y = Spring(0, { frequency = 6 }),
+				})
+				PosMotor:setGoal({
+					X = Spring(FromPosX + FromSizeX / 2, { frequency = 6 }),
+					Y = Spring(FromPosY + FromSizeY / 2, { frequency = 6 }),
+				})
+
+				-- Keep it visible (and thus interactive-looking) throughout the
+				-- shrink, and only actually hide once it's finished collapsing -
+				-- guarded by the token in case Minimize gets toggled again
+				-- before this finishes.
+				task.delay(0.28, function()
+					if Token ~= Window.MinimizeAnimToken then return end
+					if Window.Minimized then
+						Window.Root.Visible = false
+					end
+				end)
+			else
+				Window.Root.Visible = true
+
+				SizeMotor:setGoal({
+					X = Spring(Window.Size.X.Offset, { frequency = 6 }),
+					Y = Spring(Window.Size.Y.Offset, { frequency = 6 }),
+				})
+				PosMotor:setGoal({
+					X = Spring(Window.Position.X.Offset, { frequency = 6 }),
+					Y = Spring(Window.Position.Y.Offset, { frequency = 6 }),
+				})
+			end
+
 			if not MinimizeNotif then
 				MinimizeNotif = true
 				local Key = Library.MinimizeKeybind and Library.MinimizeKeybind.Value or Library.MinimizeKey.Name
@@ -3880,28 +3941,6 @@ Components.Window = (function()
 				SearchFrame.Visible = Window.ShowSearch
 				TabFrame.Size = UDim2.new(0, Window.TabWidth, 1, Window.ShowSearch and -66 or -31)
 				TabFrame.Position = UDim2.new(0, 12, 0, Window.ShowSearch and 54 or 19)
-			end
-
-			if not RunService:IsStudio() and Library.Minimizer then
-				pcall(function()
-					if Mobile then
-						local mobileButton = Library.Minimizer:FindFirstChild("TextButton")
-						if mobileButton then
-							local imageLabel = mobileButton:FindFirstChild("ImageLabel")
-							if imageLabel then
-								imageLabel.Image = Window.Minimized and "rbxassetid://10734896384" or "rbxassetid://10734897102"
-							end
-						end
-					else
-						local desktopButton = Library.Minimizer:FindFirstChild("TextButton")
-						if desktopButton then
-							local imageLabel = desktopButton:FindFirstChild("ImageLabel")
-							if imageLabel then
-								imageLabel.Image = Window.Minimized and "rbxassetid://10734896384" or "rbxassetid://10734897102"
-							end
-						end
-					end
-				end)
 			end
 		end
 
@@ -3985,6 +4024,28 @@ Components.Window = (function()
 			LastTime = 0
 			Window.SelectorPosMotor:setGoal(Instant(TabModule:GetCurrentTabPos()))
 		end)
+
+		-- Entrance animation: pop in from a point at the window's own
+		-- center and spring out to its real size/position - same visual
+		-- language as the minimize/close shrink-to-point animations.
+		do
+			local TargetSizeX, TargetSizeY = Window.Size.X.Offset, Window.Size.Y.Offset
+			local TargetPosX, TargetPosY = Window.Position.X.Offset, Window.Position.Y.Offset
+			local CenterX = TargetPosX + TargetSizeX / 2
+			local CenterY = TargetPosY + TargetSizeY / 2
+
+			SizeMotor:setGoal({ X = Instant(0), Y = Instant(0) })
+			PosMotor:setGoal({ X = Instant(CenterX), Y = Instant(CenterY) })
+
+			SizeMotor:setGoal({
+				X = Spring(TargetSizeX, { frequency = 5 }),
+				Y = Spring(TargetSizeY, { frequency = 5 }),
+			})
+			PosMotor:setGoal({
+				X = Spring(TargetPosX, { frequency = 5 }),
+				Y = Spring(TargetPosY, { frequency = 5 }),
+			})
+		end
 
 		return Window
 	end
@@ -4681,6 +4742,14 @@ ElementsTable.Dropdown = (function()
 			DropdownListLayout,
 		})
 
+		-- Forward-declared: ApplyFilter (built below, inside the optional
+		-- Search block) calls these, but they're only defined further down
+		-- the function. Without a forward declaration here, Lua resolves
+		-- those calls to non-existent globals instead of these locals -
+		-- which is exactly what threw "attempt to call a nil value" when
+		-- typing in the dropdown search box.
+		local RecalculateListPosition, RecalculateListSize, RecalculateCanvasSize
+
 		local SearchBar
 		local SearchBox
 		if Dropdown.Search then
@@ -4837,7 +4906,7 @@ ElementsTable.Dropdown = (function()
 			end
 		end
 
-		local function RecalculateListPosition()
+		function RecalculateListPosition()
 			if not DropdownHolderCanvas or not DropdownInner then return end
 			
 			local dropdownX = DropdownInner.AbsolutePosition.X
@@ -4979,7 +5048,7 @@ ElementsTable.Dropdown = (function()
 		end
 
 		local ListSizeX = 0
-		local function RecalculateListSize()
+		function RecalculateListSize()
 			if not DropdownHolderCanvas or not DropdownHolderFrame then return end
 			
 			local visibleCount = 0
@@ -5004,7 +5073,7 @@ ElementsTable.Dropdown = (function()
 			DropdownHolderFrame.Size = UDim2.fromScale(1, many and (targetHeight / math.max(targetHeight, 1)) or 1)
 		end
 
-		local function RecalculateCanvasSize()
+		function RecalculateCanvasSize()
 			DropdownScrollFrame.CanvasSize = UDim2.fromOffset(0, DropdownListLayout.AbsoluteContentSize.Y)
 		end
 
@@ -8050,11 +8119,24 @@ function Library:CreateMinimizer(Config)
 		return self.Minimizer
 	end
 
-	local parentGui = Library.GUI or GUI
-	if parentGui then parentGui.DisplayOrder = 1000 end
-	local isMobile = Mobile and true or false
+	local CoreGui = game:GetService("CoreGui")
 
-	local iconAsset = "rbxassetid://10734897102"
+	-- Clear out any stale copy from a previous load (e.g. re-running the
+	-- script without the old one ever getting destroyed).
+	local Existing = CoreGui:FindFirstChild("SkullHubMinimizeUI")
+	if Existing then
+		Existing:Destroy()
+	end
+
+	local DragUI = Instance.new("ScreenGui")
+	DragUI.Name = "SkullHubMinimizeUI"
+	DragUI.ResetOnSpawn = false
+	DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	DragUI.DisplayOrder = 1000
+	DragUI.Parent = CoreGui
+	ProtectGui(DragUI)
+
+	local iconAsset = "rbxassetid://95183678717613"
 	if type(Config.Icon) == "string" and Config.Icon ~= "" then
 		pcall(function()
 			local resolved = Library:GetIcon(Config.Icon)
@@ -8066,152 +8148,114 @@ function Library:CreateMinimizer(Config)
 		end)
 	end
 
-	local useAcrylic = (Config.Acrylic == true)
+	local Button = Instance.new("ImageButton")
+	Button.Name = "MinimizeButton"
+	Button.Parent = DragUI
+	Button.Size = Config.Size or UDim2.new(0, 50, 0, 50)
+	Button.Position = Config.Position or UDim2.new(1, -70, 1, -85)
+	Button.BackgroundTransparency = (typeof(Config.Transparency) == "number") and math.clamp(Config.Transparency, 0, 1) or 0.3
+	Button.BorderSizePixel = 0
+	Button.ClipsDescendants = true
+	Button.Image = iconAsset
+	Button.ScaleType = Enum.ScaleType.Fit
+	Button.Active = true
+	Button.ZIndex = 1000
+	Button.Visible = (Config.Visible ~= false)
 
-	local cornerRadius = tonumber(Config.Corner)
-	local backgroundTransparency = (typeof(Config.Transparency) == "number") and math.clamp(Config.Transparency, 0, 1) or 0
-	local draggableWhole = (Config.Draggable == true)
+	Instance.new("UICorner", Button).CornerRadius = UDim.new(1, 0)
 
-	local holder
-	local function createButton(isDesktop)
-		return New("TextButton", {
-			Name = "MinimizeButton",
-			Size = UDim2.new(1, 0, 1, 0),
-			BorderSizePixel = 0,
-			BackgroundTransparency = backgroundTransparency or 0,
-			AutoButtonColor = true,
-			ThemeTag = {
-				BackgroundColor3 = "Element",
-			},
-		}, {
-			New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) }),
-			New("UIStroke", {
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				Transparency = isDesktop and 0.6 or 0.7,
-				Thickness = isDesktop and 2 or 1.5,
-				ThemeTag = {
-					Color = "ElementBorder",
-				},
-			}),
-			New("ImageLabel", {
-				Name = "Icon",
-				Image = iconAsset,
-				Size = UDim2.new(0.8, 0, 0.8, 0),
-				Position = UDim2.new(0.5, 0, 0.5, 0),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				ThemeTag = {
-					ImageColor3 = "Text",
-				},
-			}, {
-				New("UIAspectRatioConstraint", { AspectRatio = 1, AspectType = Enum.AspectType.FitWithinMaxSize }),
-				New("UICorner", { CornerRadius = UDim.new(0, 0) })
-			}),
+	local ButtonStroke = Instance.new("UIStroke")
+	ButtonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ButtonStroke.Transparency = 0.5
+	ButtonStroke.Parent = Button
 
-		})
-	end
+	-- Follow the current theme instead of a hardcoded color, and keep
+	-- following it live whenever the theme changes (Creator.UpdateTheme
+	-- runs on every Library:SetTheme call and re-applies these).
+	-- "Dialog"/"DialogBorder" are the theme's solid card-surface colors
+	-- (same ones used for floating dialog panels) - deeper/darker than
+	-- "Element", which is the light gray meant for translucent list rows,
+	-- not a standalone opaque button.
+	Creator.AddThemeObject(Button, { BackgroundColor3 = "Dialog" })
+	Creator.AddThemeObject(ButtonStroke, { Color = "DialogBorder" })
 
-	if isMobile then
-		holder = New("Frame", {
-			Name = "FluentMinimizer",
-			Parent = parentGui,
-			Size = Config.Size or UDim2.fromOffset(36, 36),
-			Position = Config.Position or UDim2.new(0.45, 0, 0.025, 0),
-			BackgroundTransparency = 1,
-			ZIndex = 999999999,
-			Visible = (Config.Visible ~= false),
-		})
-	else
-		holder = New("Frame", {
-			Name = "FluentMinimizer",
-			Parent = parentGui,
-			Size = Config.Size or UDim2.fromOffset(36, 36),
-			Position = Config.Position or UDim2.new(0, 300, 0, 20),
-			BackgroundTransparency = 1,
-			ZIndex = 999999999,
-			Visible = (Config.Visible ~= false),
-		})
-	end
+	local BtnTweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local BaseSize = Button.Size
 
-	if useAcrylic then
-		local miniAcrylic = Acrylic.AcrylicPaint()
-		miniAcrylic.Frame.Parent = holder
-		miniAcrylic.Frame.Size = UDim2.fromScale(1, 1)
-		pcall(function() miniAcrylic.AddParent(holder) end)
+	local State = {
+		dragging = false,
+		isDragging = false,
+		dragStart = Vector2.zero,
+		startPos = Vector2.zero,
+		threshold = 10,
+	}
 
-		local desiredCorner = UDim.new(0, cornerRadius or 0)
-		pcall(function()
-			for _, descendant in ipairs(miniAcrylic.Frame:GetDescendants()) do
-				if descendant.ClassName == "UICorner" then
-					descendant.CornerRadius = desiredCorner
-				elseif descendant.ClassName == "ImageLabel" then
-					descendant.Size = UDim2.fromScale(1, 1)
-					descendant.Position = UDim2.new(0.5, 0, 0.5, 0)
-					descendant.AnchorPoint = Vector2.new(0.5, 0.5)
-				end
-			end
-		end)
-		self.MinimizerAcrylic = miniAcrylic
-	end
+	Creator.AddSignal(Button.MouseButton1Click, function()
+		if State.isDragging then return end
 
-	local btnInstance = createButton(not isMobile)
-	btnInstance.Parent = holder
-	btnInstance.ZIndex = (holder.ZIndex or 0) + 1
+		TweenService:Create(Button, BtnTweenInfo, {
+			BackgroundTransparency = math.min(Button.BackgroundTransparency + 0.2, 1), Size = BaseSize - UDim2.fromOffset(5, 5), Rotation = 5
+		}):Play()
+		task.wait(0.1)
+		TweenService:Create(Button, BtnTweenInfo, {
+			BackgroundTransparency = (typeof(Config.Transparency) == "number") and math.clamp(Config.Transparency, 0, 1) or 0.3, Size = BaseSize, Rotation = 0
+		}):Play()
 
-	local button = holder:FindFirstChildOfClass("TextButton")
-	if button then
-		local isDragging = false
-		local dragStart, dragOffset
+		if Library.Window then
+			Library.Window:Minimize()
+		end
+	end)
 
-		if draggableWhole then
-			Creator.AddSignal(button.InputBegan, function(Input)
-				if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-					isDragging = true
-					local pos = Input.Position
-					dragStart = Vector2.new(pos.X, pos.Y)
-					dragOffset = holder.Position
-					local conn
-					conn = Input.Changed:Connect(function()
-						if Input.UserInputState == Enum.UserInputState.End then
-							isDragging = false
-							dragStart = nil
-							dragOffset = nil
-							conn:Disconnect()
-						end
-					end)
-				end
-			end)
+	Creator.AddSignal(Button.MouseEnter, function()
+		TweenService:Create(Button, BtnTweenInfo, { Size = BaseSize + UDim2.fromOffset(5, 5) }):Play()
+	end)
 
-			Creator.AddSignal(RunService.Heartbeat, function()
-				if isDragging and dragStart and dragOffset and holder and holder.Parent then
-					local mouse = LocalPlayer:GetMouse()
-					local current = Vector2.new(mouse.X, mouse.Y)
-					local delta = current - dragStart
-					local newX = dragOffset.X.Offset + delta.X
-					local newY = dragOffset.Y.Offset + delta.Y
-					local viewport = workspace.Camera.ViewportSize
-					local size = holder.AbsoluteSize
-					if newX < 0 then newX = 0 end
-					if newY < 0 then newY = 0 end
-					if newX > viewport.X - size.X then newX = viewport.X - size.X end
-					if newY > viewport.Y - size.Y then newY = viewport.Y - size.Y end
-					holder.Position = UDim2.new(0, newX, 0, newY)
+	Creator.AddSignal(Button.MouseLeave, function()
+		TweenService:Create(Button, BtnTweenInfo, { Size = BaseSize }):Play()
+	end)
+
+	Creator.AddSignal(Button.InputBegan, function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			State.isDragging = false
+			State.dragging = true
+			State.dragStart = Vector2.new(input.Position.X, input.Position.Y)
+			State.startPos = Button.AbsolutePosition
+
+			local Conn
+			Conn = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					State.dragging = false
+					Conn:Disconnect()
 				end
 			end)
 		end
+	end)
 
-		AddSignal(button.MouseButton1Click, function()
-			task.wait(0.1)
-			if not isDragging then
-				Library.Window:Minimize()
+	Creator.AddSignal(UserInputService.InputChanged, function(input)
+		if not State.dragging then return end
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			local delta = Vector2.new(input.Position.X, input.Position.Y) - State.dragStart
+
+			if delta.Magnitude > State.threshold then
+				State.isDragging = true
 			end
-		end)
-	end
 
+			local newPos = State.startPos + delta
+			local screenSize = workspace.CurrentCamera.ViewportSize
+			local btnSize = Button.AbsoluteSize
 
+			Button.Position = UDim2.new(
+				0, math.clamp(newPos.X, 0, screenSize.X - btnSize.X),
+				0, math.clamp(newPos.Y, 0, screenSize.Y - btnSize.Y)
+			)
+		end
+	end)
 
-	self.Minimizer = holder
-	return holder
+	self.Minimizer = DragUI
+	self.MinimizerButton = Button
+	self.MinimizerButtonStroke = ButtonStroke
+	return DragUI
 end
 
 function Library:SetTheme(Value)
@@ -8233,6 +8277,27 @@ function Library:Destroy()
 		end
 		Creator.Disconnect()
 		Library.GUI:Destroy()
+	end
+
+	-- The minimizer button lives in its own ScreenGui (parented straight to
+	-- CoreGui, outside Library.GUI), so it needs its own cleanup here or it
+	-- would keep floating on screen after the rest of the interface is gone.
+	if Library.Minimizer then
+		pcall(function()
+			-- Drop it from the theme registry first - Creator.UpdateTheme
+			-- writes properties onto every registered Instance, and doing
+			-- that to an already-destroyed one would error.
+			if Library.MinimizerButton then
+				Creator.Registry[Library.MinimizerButton] = nil
+			end
+			if Library.MinimizerButtonStroke then
+				Creator.Registry[Library.MinimizerButtonStroke] = nil
+			end
+			Library.Minimizer:Destroy()
+		end)
+		Library.Minimizer = nil
+		Library.MinimizerButton = nil
+		Library.MinimizerButtonStroke = nil
 	end
 end
 
