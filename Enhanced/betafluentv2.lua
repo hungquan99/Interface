@@ -6701,6 +6701,288 @@ ElementsTable.Input = (function()
 	return Element
 end)()
 
+-- Priority: an ordered list where every entry carries its own number box.
+-- Reads like a Dropdown (a summary line you click to expand) but instead of
+-- SELECTING entries you RANK them - highest number wins, and the list re-sorts
+-- itself live as you type. Built for "which of these runs first" settings.
+--
+--   Config.Values     array of entry names, FIRST = highest default priority
+--   Config.Min/Max    clamp for the number boxes (default 0 / 99)
+--   Config.Collapsed  start with the rows hidden (default false)
+--   Config.Callback   fn(orderedNames) - highest priority first
+--
+--   Element.Value      { [name] = number }   <- what SaveManager persists
+--   Element:GetOrder() { name, ... }         <- highest priority first
+--
+-- ⚠️ Rows are never rebuilt on edit, only re-sorted through LayoutOrder. A
+-- rebuild would destroy the TextBox you are currently typing in and drop focus
+-- after every keystroke.
+ElementsTable.Priority = (function()
+	local Element = {}
+	Element.__index = Element
+	Element.__type = "Priority"
+	local New = Creator.New
+
+	function Element:New(Idx, Config)
+		assert(Config.Title, "Priority - Missing Title")
+		Config = Config or {}
+		Config.Callback = Config.Callback or function() end
+
+		local Priority = {
+			Values = {},   -- entry names, in the order they were declared
+			Value = {},    -- name -> number
+			Rows = {},     -- name -> { Frame, Label, Box }
+			Opened = false,
+			Min = Config.Min or 0,
+			Max = Config.Max or 99,
+			Type = "Priority",
+			Callback = Config.Callback,
+		}
+
+		local PriorityFrame = Components.Element(Config.Title, Config.Description, self.Container, false, Config)
+		Priority.SetTitle = PriorityFrame.SetTitle
+		Priority.SetDesc = PriorityFrame.SetDesc
+		Priority.Visible = PriorityFrame.Visible
+		Priority.Elements = PriorityFrame
+
+		-- ---- summary bar (click to expand, copy button on the right) ----
+		local SummaryLabel = New("TextLabel", {
+			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+			Text = "",
+			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, -40, 1, 0),
+			Position = UDim2.fromOffset(8, 0),
+			ThemeTag = { TextColor3 = "SubText" },
+		})
+
+		local CopyButton = New("ImageButton", {
+			Image = Library:GetIcon("copy") or "rbxassetid://10734898355",
+			Size = UDim2.fromOffset(16, 16),
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -8, 0.5, 0),
+			BackgroundTransparency = 1,
+			ThemeTag = { ImageColor3 = "SubText" },
+		})
+
+		local SummaryBar = New("TextButton", {
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 0.9,
+			Text = "",
+			LayoutOrder = 3,
+			ThemeTag = { BackgroundColor3 = "DropdownFrame" },
+		}, {
+			New("UICorner", { CornerRadius = UDim.new(0, 5) }),
+			New("UIStroke", {
+				Transparency = 0.5,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				ThemeTag = { Color = "InElementBorder" },
+			}),
+			SummaryLabel,
+			CopyButton,
+		})
+
+		-- ---- rows holder (stacks under the summary, inside the element) ----
+		local RowsHolder = New("Frame", {
+			BackgroundTransparency = 1,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0),
+			LayoutOrder = 4,
+			Visible = not Config.Collapsed,
+		}, {
+			New("UIListLayout", {
+				Padding = UDim.new(0, 3),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+			New("UIPadding", { PaddingTop = UDim.new(0, 5) }),
+		})
+
+		SummaryBar.Parent = PriorityFrame.LabelHolder
+		RowsHolder.Parent = PriorityFrame.LabelHolder
+		Priority.Opened = not Config.Collapsed
+
+		-- Declared order is the tie-break, so equal numbers keep a stable, predictable layout
+		-- instead of flipping around on every re-sort.
+		local function declaredIndex(name)
+			for i, v in ipairs(Priority.Values) do
+				if v == name then return i end
+			end
+			return math.huge
+		end
+
+		function Priority:GetOrder()
+			local out = {}
+			for _, name in ipairs(Priority.Values) do
+				out[#out + 1] = name
+			end
+			table.sort(out, function(a, b)
+				local na, nb = Priority.Value[a] or 0, Priority.Value[b] or 0
+				if na == nb then
+					return declaredIndex(a) < declaredIndex(b)
+				end
+				return na > nb
+			end)
+			return out
+		end
+
+		-- Re-sorts rows (via LayoutOrder), refreshes every "N. Name" prefix and the summary line.
+		-- `skipBox` is the name of the box currently being typed in - its text is left alone so the
+		-- caret does not jump while the user is mid-edit.
+		local function refresh(skipBox)
+			local order = Priority:GetOrder()
+			local parts = {}
+			for position, name in ipairs(order) do
+				local row = Priority.Rows[name]
+				local number = Priority.Value[name] or 0
+				parts[#parts + 1] = name
+				if row then
+					row.Frame.LayoutOrder = position
+					row.Label.Text = string.format("%d. %s", number, name)
+					if row.Box ~= skipBox then
+						row.Box.Text = tostring(number)
+					end
+				end
+			end
+			SummaryLabel.Text = Config.Title .. ": " .. table.concat(parts, " > ")
+			return order
+		end
+
+		local function commit(name, text, box)
+			local number = tonumber(text)
+			if not number then
+				-- Reject junk by snapping back to the stored value rather than zeroing the entry.
+				refresh()
+				return
+			end
+			number = math.clamp(math.floor(number), Priority.Min, Priority.Max)
+			Priority.Value[name] = number
+			local order = refresh(box)
+			Library:SafeCallback(Priority.Callback, order)
+			Library:SafeCallback(Priority.Changed, order)
+		end
+
+		local function buildRow(name)
+			local Label = New("TextLabel", {
+				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+				Text = name,
+				TextSize = 13,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, -80, 1, 0),
+				Position = UDim2.fromOffset(10, 0),
+				ThemeTag = { TextColor3 = "Text" },
+			})
+
+			local Frame = New("Frame", {
+				Size = UDim2.new(1, 0, 0, 32),
+				BackgroundTransparency = 0.92,
+				ThemeTag = { BackgroundColor3 = "Element" },
+			}, {
+				New("UICorner", { CornerRadius = UDim.new(0, 4) }),
+				Label,
+			})
+
+			local Textbox = Components.Textbox(Frame, true)
+			Textbox.Frame.Size = UDim2.fromOffset(58, 24)
+			Textbox.Frame.AnchorPoint = Vector2.new(1, 0.5)
+			Textbox.Frame.Position = UDim2.new(1, -8, 0.5, 0)
+			Textbox.Input.TextXAlignment = Enum.TextXAlignment.Center
+			Textbox.Input.TextSize = 13
+			Textbox.Input.Text = tostring(Priority.Value[name] or 0)
+
+			-- Commit on FocusLost only: committing per keystroke would re-sort the list out from
+			-- under the box you are typing in.
+			AddSignal(Textbox.Input.FocusLost, function()
+				commit(name, Textbox.Input.Text, Textbox.Input)
+			end)
+
+			Frame.Parent = RowsHolder
+			Priority.Rows[name] = { Frame = Frame, Label = Label, Box = Textbox.Input }
+		end
+
+		-- Replaces the entries. Numbers already held for a surviving name are kept, so adding one
+		-- entry in a later update never scrambles a ranking the user set.
+		function Priority:SetValues(NewValues)
+			for _, row in pairs(Priority.Rows) do
+				row.Frame:Destroy()
+			end
+			Priority.Rows = {}
+			Priority.Values = {}
+			for _, name in ipairs(NewValues or {}) do
+				Priority.Values[#Priority.Values + 1] = tostring(name)
+			end
+			local kept = Priority.Value
+			Priority.Value = {}
+			local count = #Priority.Values
+			for i, name in ipairs(Priority.Values) do
+				-- Default: first declared entry gets the highest number.
+				Priority.Value[name] = kept[name] or math.clamp(count - i + 1, Priority.Min, Priority.Max)
+				buildRow(name)
+			end
+			refresh()
+		end
+
+		-- Accepts { [name] = number }; unknown names are dropped and missing ones keep their
+		-- default, so a stale saved config can never leave an entry unranked.
+		function Priority:SetValue(Val)
+			if type(Val) == "table" then
+				for name, number in pairs(Val) do
+					if Priority.Value[tostring(name)] ~= nil and tonumber(number) then
+						Priority.Value[tostring(name)] =
+							math.clamp(math.floor(tonumber(number)), Priority.Min, Priority.Max)
+					end
+				end
+			end
+			local order = refresh()
+			Library:SafeCallback(Priority.Callback, order)
+			Library:SafeCallback(Priority.Changed, order)
+		end
+
+		function Priority:OnChanged(Func)
+			Priority.Changed = Func
+			Func(Priority:GetOrder())
+		end
+
+		function Priority:Open()
+			Priority.Opened = true
+			RowsHolder.Visible = true
+		end
+
+		function Priority:Close()
+			Priority.Opened = false
+			RowsHolder.Visible = false
+		end
+
+		AddSignal(SummaryBar.MouseButton1Click, function()
+			if Priority.Opened then Priority:Close() else Priority:Open() end
+		end)
+
+		AddSignal(CopyButton.MouseButton1Click, function()
+			local clip = setclipboard or toclipboard or (syn and syn.write_clipboard)
+			if type(clip) == "function" then
+				pcall(clip, SummaryLabel.Text)
+			end
+		end)
+
+		function Priority:Destroy()
+			PriorityFrame:Destroy()
+			Library.Options[Idx] = nil
+		end
+
+		Priority:SetValues(Config.Values)
+
+		Library.Options[Idx] = Priority
+		return Priority
+	end
+
+	return Element
+end)()
+
 -- Divider: a thin horizontal separator line, useful for visually
 -- grouping elements inside a Tab/Section without needing a full
 -- Section header. Uses the same "TitleBarLine" theme color already
