@@ -4785,9 +4785,24 @@ ElementsTable.Dropdown = (function()
 		})
 
 		-- Exposed so an element BUILT ON TOP of Dropdown (see ElementsTable.Priority) can override
-		-- Dropdown:Display() and paint its own summary text. Without this the label is a local and
-		-- an override would have nothing to write to.
+		-- Dropdown:Display() and paint its own summary text, or park extra controls on the bar.
+		-- Without these the label/bar are locals and an override would have nothing to write to.
 		Dropdown.DisplayLabel = DropdownDisplay
+		Dropdown.Inner = DropdownInner
+
+		-- FullWidth: lay the control out as a LONG bar under the title/description instead of the
+		-- default 160px control sitting inline to their right. For a dropdown whose display text is
+		-- a sentence rather than one value (Priority's "Title: A > B > C"), the inline bar truncates
+		-- almost immediately. LabelHolder is the element's UIListLayout column, so re-parenting into
+		-- it stacks the bar under the description and inherits the full element width.
+		if Config.FullWidth then
+			DropdownFrame.DescLabel.Size = UDim2.new(1, 0, 0, 14)
+			DropdownInner.AnchorPoint = Vector2.new(0, 0)
+			DropdownInner.Position = UDim2.fromOffset(0, 0)
+			DropdownInner.Size = UDim2.new(1, 0, 0, 30)
+			DropdownInner.LayoutOrder = 5
+			DropdownInner.Parent = DropdownFrame.LabelHolder
+		end
 
 		local DropdownListLayout = New("UIListLayout", {
 			Padding = UDim.new(0, 3),
@@ -5136,6 +5151,11 @@ ElementsTable.Dropdown = (function()
 			local targetHeight = math.min(estimatedContent, maxHeight)
 			
 			local canvasWidth = math.max(170, ListSizeX > 0 and (ListSizeX + 20) or 170)
+			-- A FullWidth bar is much wider than the widest row label, so sizing the list off the
+			-- labels alone would open a narrow list under a long bar. Match the bar instead.
+			if Config.FullWidth and DropdownInner then
+				canvasWidth = math.max(canvasWidth, DropdownInner.AbsoluteSize.X)
+			end
 			DropdownHolderCanvas.Size = UDim2.fromOffset(canvasWidth, targetHeight)
 			
 			local many = visibleCount > 10
@@ -6830,6 +6850,9 @@ ElementsTable.Priority = (function()
 			AllowNull = true,
 			Search = Config.Search,
 			NoSelect = true,
+			-- The summary is a sentence ("Title: A > B > C"), so it needs the long bar under the
+			-- title rather than the inline 160px control, which would truncate it immediately.
+			FullWidth = (Config.FullWidth ~= false),
 			OnRowBuilt = function(row)
 				local number = Priority.Value[row.Value] or 0
 				row.Label.Text = string.format("%d. %s", number, row.Value)
@@ -6867,6 +6890,31 @@ ElementsTable.Priority = (function()
 			Dropdown.DisplayLabel.Text = (#parts > 0)
 				and (Config.Title .. ": " .. table.concat(parts, " > "))
 				or "--"
+		end
+
+		-- Copy button on the bar, left of the chevron: the ranking is a one-line summary people
+		-- share. It sits INSIDE the bar button, so clicking it copies instead of opening the list
+		-- (a GuiButton child swallows the click rather than passing it to its parent).
+		if Dropdown.Inner then
+			local Copy = Creator.New("ImageButton", {
+				Image = Library:GetIcon("copy") or "rbxassetid://10734898355",
+				Size = UDim2.fromOffset(16, 16),
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -30, 0.5, 0),
+				BackgroundTransparency = 1,
+				Parent = Dropdown.Inner,
+				ThemeTag = { ImageColor3 = "SubText" },
+			})
+			if Dropdown.DisplayLabel then
+				-- Room for chevron + copy instead of just the chevron.
+				Dropdown.DisplayLabel.Size = UDim2.new(1, -64, 0.5, 0)
+			end
+			Creator.AddSignal(Copy.MouseButton1Click, function()
+				local clip = setclipboard or toclipboard or (syn and syn.write_clipboard)
+				if type(clip) == "function" and Dropdown.DisplayLabel then
+					pcall(clip, Dropdown.DisplayLabel.Text)
+				end
+			end)
 		end
 
 		Priority.Dropdown = Dropdown
