@@ -6859,7 +6859,10 @@ ElementsTable.Priority = (function()
 			end
 			number = math.clamp(math.floor(number), Priority.Min, Priority.Max)
 			Priority.Value[name] = number
-			local order = refresh(box)
+			-- No skipBox here: commit only runs on FocusLost, so the caret is already gone and the
+			-- box MUST be rewritten or a clamped entry ("500" -> 99) would keep showing what was
+			-- typed instead of what was stored.
+			local order = refresh()
 			Library:SafeCallback(Priority.Callback, order)
 			Library:SafeCallback(Priority.Changed, order)
 		end
@@ -6893,6 +6896,9 @@ ElementsTable.Priority = (function()
 			Textbox.Frame.Position = UDim2.new(1, -8, 0.5, 0)
 			Textbox.Input.TextXAlignment = Enum.TextXAlignment.Center
 			Textbox.Input.TextSize = 13
+			-- Components.Textbox left-indents its Input by 10px for normal text entry; a centred
+			-- number box has to drop that or the digits sit off-centre in a 58px frame.
+			Textbox.Input.Position = UDim2.fromOffset(0, 0)
 			Textbox.Input.Text = tostring(Priority.Value[name] or 0)
 
 			-- Commit on FocusLost only: committing per keystroke would re-sort the list out from
