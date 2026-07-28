@@ -4727,7 +4727,7 @@ ElementsTable.Dropdown = (function()
 		Dropdown.SetDesc = DropdownFrame.SetDesc
 		Dropdown.Visible = DropdownFrame.Visible
 		Dropdown.Elements = DropdownFrame
-		
+
 		local container = self.Container
 
 		local DropdownDisplay = New("TextLabel", {
@@ -4783,6 +4783,11 @@ ElementsTable.Dropdown = (function()
 			DropdownIco,
 			DropdownDisplay,
 		})
+
+		-- Exposed so an element BUILT ON TOP of Dropdown (see ElementsTable.Priority) can override
+		-- Dropdown:Display() and paint its own summary text. Without this the label is a local and
+		-- an override would have nothing to write to.
+		Dropdown.DisplayLabel = DropdownDisplay
 
 		local DropdownListLayout = New("UIListLayout", {
 			Padding = UDim.new(0, 3),
@@ -5428,6 +5433,12 @@ ElementsTable.Dropdown = (function()
 					SetSelTransparency(Selected and 0 or 1)
 				end
 				AddSignal(Button.Activated, function()
+					-- NoSelect: the row carries its OWN control (a number box, a stepper, ...) and
+					-- clicking the row itself must not toggle a selection. Used by Priority.
+					if Config.NoSelect then
+						return
+					end
+
 					local Try = not Selected
 
 					if Dropdown:GetActiveValues() == 1 and not Try and not Config.AllowNull then
@@ -5455,6 +5466,18 @@ ElementsTable.Dropdown = (function()
 
 				Table:UpdateButton()
 				Dropdown:Display()
+
+				-- Extension point for elements built on top of Dropdown: lets them decorate a row
+				-- (shrink the label, park a control on the right) without duplicating any of the
+				-- holder/positioning/search machinery above. Fired after the row is fully wired.
+				if Config.OnRowBuilt then
+					Library:SafeCallback(Config.OnRowBuilt, {
+						Button = Button,
+						Label = ButtonLabel,
+						Selector = ButtonSelector,
+						Value = Value,
+					})
+				end
 
 				Buttons[Button] = Table
 			end
@@ -6702,110 +6725,46 @@ ElementsTable.Input = (function()
 end)()
 
 -- Priority: an ordered list where every entry carries its own number box.
--- Reads like a Dropdown (a summary line you click to expand) but instead of
--- SELECTING entries you RANK them - highest number wins, and the list re-sorts
--- itself live as you type. Built for "which of these runs first" settings.
+-- Highest number = highest priority, and the list re-sorts itself on edit.
+-- Built for "which of these runs first" settings.
+--
+-- ⭐ This element is a THIN WRAPPER OVER ElementsTable.Dropdown, not a reimplementation. It builds
+-- a real Dropdown underneath and inherits, for free and permanently in sync: the summary bar,
+-- the floating holder + all of its viewport/window edge positioning, OpenToRight, the search box,
+-- the open/close animation, hover springs and every theme tag. Only three things are changed:
+--   * Config.NoSelect     - a row click no longer toggles a selection (rows own a number box)
+--   * Config.OnRowBuilt   - each row gets its number box parked on the right
+--   * Dropdown:Display    - overridden to paint "Title: A > B > C" instead of a selected value
+-- Duplicating the Dropdown instead would mean copying ~900 lines of holder positioning that would
+-- then silently rot the next time the Dropdown is fixed.
 --
 --   Config.Values     array of entry names, FIRST = highest default priority
 --   Config.Min/Max    clamp for the number boxes (default 0 / 99)
---   Config.Collapsed  start with the rows hidden (default false)
+--   Config.Search     passed straight through to the Dropdown (default: Dropdown's own default)
 --   Config.Callback   fn(orderedNames) - highest priority first
 --
 --   Element.Value      { [name] = number }   <- what SaveManager persists
 --   Element:GetOrder() { name, ... }         <- highest priority first
---
--- ⚠️ Rows are never rebuilt on edit, only re-sorted through LayoutOrder. A
--- rebuild would destroy the TextBox you are currently typing in and drop focus
--- after every keystroke.
 ElementsTable.Priority = (function()
 	local Element = {}
 	Element.__index = Element
 	Element.__type = "Priority"
-	local New = Creator.New
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "Priority - Missing Title")
 		Config = Config or {}
-		Config.Callback = Config.Callback or function() end
+		assert(Config.Title, "Priority - Missing Title")
 
 		local Priority = {
-			Values = {},   -- entry names, in the order they were declared
+			Values = {},   -- entry names in DECLARED order (the tie-break for equal numbers)
 			Value = {},    -- name -> number
-			Rows = {},     -- name -> { Frame, Label, Box }
-			Opened = false,
 			Min = Config.Min or 0,
 			Max = Config.Max or 99,
 			Type = "Priority",
-			Callback = Config.Callback,
+			Callback = Config.Callback or function() end,
 		}
 
-		local PriorityFrame = Components.Element(Config.Title, Config.Description, self.Container, false, Config)
-		Priority.SetTitle = PriorityFrame.SetTitle
-		Priority.SetDesc = PriorityFrame.SetDesc
-		Priority.Visible = PriorityFrame.Visible
-		Priority.Elements = PriorityFrame
+		local Dropdown
 
-		-- ---- summary bar (click to expand, copy button on the right) ----
-		local SummaryLabel = New("TextLabel", {
-			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
-			Text = "",
-			TextSize = 13,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			BackgroundTransparency = 1,
-			Size = UDim2.new(1, -40, 1, 0),
-			Position = UDim2.fromOffset(8, 0),
-			ThemeTag = { TextColor3 = "SubText" },
-		})
-
-		local CopyButton = New("ImageButton", {
-			Image = Library:GetIcon("copy") or "rbxassetid://10734898355",
-			Size = UDim2.fromOffset(16, 16),
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -8, 0.5, 0),
-			BackgroundTransparency = 1,
-			ThemeTag = { ImageColor3 = "SubText" },
-		})
-
-		local SummaryBar = New("TextButton", {
-			Size = UDim2.new(1, 0, 0, 30),
-			BackgroundTransparency = 0.9,
-			Text = "",
-			LayoutOrder = 3,
-			ThemeTag = { BackgroundColor3 = "DropdownFrame" },
-		}, {
-			New("UICorner", { CornerRadius = UDim.new(0, 5) }),
-			New("UIStroke", {
-				Transparency = 0.5,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				ThemeTag = { Color = "InElementBorder" },
-			}),
-			SummaryLabel,
-			CopyButton,
-		})
-
-		-- ---- rows holder (stacks under the summary, inside the element) ----
-		local RowsHolder = New("Frame", {
-			BackgroundTransparency = 1,
-			AutomaticSize = Enum.AutomaticSize.Y,
-			Size = UDim2.new(1, 0, 0, 0),
-			LayoutOrder = 4,
-			Visible = not Config.Collapsed,
-		}, {
-			New("UIListLayout", {
-				Padding = UDim.new(0, 3),
-				SortOrder = Enum.SortOrder.LayoutOrder,
-			}),
-			New("UIPadding", { PaddingTop = UDim.new(0, 5) }),
-		})
-
-		SummaryBar.Parent = PriorityFrame.LabelHolder
-		RowsHolder.Parent = PriorityFrame.LabelHolder
-		Priority.Opened = not Config.Collapsed
-
-		-- Declared order is the tie-break, so equal numbers keep a stable, predictable layout
-		-- instead of flipping around on every re-sort.
 		local function declaredIndex(name)
 			for i, v in ipairs(Priority.Values) do
 				if v == name then return i end
@@ -6818,6 +6777,7 @@ ElementsTable.Priority = (function()
 			for _, name in ipairs(Priority.Values) do
 				out[#out + 1] = name
 			end
+			-- Equal numbers fall back to declared order so the list never flips around at random.
 			table.sort(out, function(a, b)
 				local na, nb = Priority.Value[a] or 0, Priority.Value[b] or 0
 				if na == nb then
@@ -6828,96 +6788,99 @@ ElementsTable.Priority = (function()
 			return out
 		end
 
-		-- Re-sorts rows (via LayoutOrder), refreshes every "N. Name" prefix and the summary line.
-		-- `skipBox` is the name of the box currently being typed in - its text is left alone so the
-		-- caret does not jump while the user is mid-edit.
-		local function refresh(skipBox)
-			local order = Priority:GetOrder()
-			local parts = {}
-			for position, name in ipairs(order) do
-				local row = Priority.Rows[name]
-				local number = Priority.Value[name] or 0
-				parts[#parts + 1] = name
-				if row then
-					row.Frame.LayoutOrder = position
-					row.Label.Text = string.format("%d. %s", number, name)
-					if row.Box ~= skipBox then
-						row.Box.Text = tostring(number)
-					end
-				end
+		-- Re-sorts and re-renders. Dropdown:SetValues rebuilds the rows, which re-runs OnRowBuilt
+		-- and therefore repaints every number box and "N." prefix from Priority.Value.
+		-- ⚠️ Safe to rebuild here precisely because commit only ever runs on FocusLost - rebuilding
+		-- while a box still had focus would destroy the TextBox under the caret.
+		local function rerender(fire)
+			local ordered = Priority:GetOrder()
+			if Dropdown then
+				Dropdown:SetValues(ordered)
+				Dropdown:Display()
 			end
-			SummaryLabel.Text = Config.Title .. ": " .. table.concat(parts, " > ")
-			return order
+			if fire then
+				Library:SafeCallback(Priority.Callback, ordered)
+				Library:SafeCallback(Priority.Changed, ordered)
+			end
+			return ordered
 		end
 
-		local function commit(name, text, box)
+		local function commit(name, text)
 			local number = tonumber(text)
 			if not number then
 				-- Reject junk by snapping back to the stored value rather than zeroing the entry.
-				refresh()
+				rerender(false)
 				return
 			end
-			number = math.clamp(math.floor(number), Priority.Min, Priority.Max)
-			Priority.Value[name] = number
-			-- No skipBox here: commit only runs on FocusLost, so the caret is already gone and the
-			-- box MUST be rewritten or a clamped entry ("500" -> 99) would keep showing what was
-			-- typed instead of what was stored.
-			local order = refresh()
-			Library:SafeCallback(Priority.Callback, order)
-			Library:SafeCallback(Priority.Changed, order)
+			Priority.Value[name] = math.clamp(math.floor(number), Priority.Min, Priority.Max)
+			rerender(true)
 		end
 
-		local function buildRow(name)
-			local Label = New("TextLabel", {
-				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
-				Text = name,
-				TextSize = 13,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Center,
-				TextTruncate = Enum.TextTruncate.AtEnd,
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, -80, 1, 0),
-				Position = UDim2.fromOffset(10, 0),
-				ThemeTag = { TextColor3 = "Text" },
-			})
+		-- ---- build the underlying Dropdown ----
+		ElementsTable.Dropdown.Container = self.Container
+		ElementsTable.Dropdown.Type = self.Type
+		ElementsTable.Dropdown.ScrollFrame = self.ScrollFrame
+		ElementsTable.Dropdown.Library = Library
 
-			local Frame = New("Frame", {
-				Size = UDim2.new(1, 0, 0, 32),
-				BackgroundTransparency = 0.92,
-				ThemeTag = { BackgroundColor3 = "Element" },
-			}, {
-				New("UICorner", { CornerRadius = UDim.new(0, 4) }),
-				Label,
-			})
+		Dropdown = ElementsTable.Dropdown:New(Idx, {
+			Title = Config.Title,
+			Description = Config.Description,
+			Values = {},
+			Multi = false,
+			AllowNull = true,
+			Search = Config.Search,
+			NoSelect = true,
+			OnRowBuilt = function(row)
+				local number = Priority.Value[row.Value] or 0
+				row.Label.Text = string.format("%d. %s", number, row.Value)
+				row.Label.Size = UDim2.new(1, -85, 1, 0)
+				row.Label.TextTruncate = Enum.TextTruncate.AtEnd
 
-			local Textbox = Components.Textbox(Frame, true)
-			Textbox.Frame.Size = UDim2.fromOffset(58, 24)
-			Textbox.Frame.AnchorPoint = Vector2.new(1, 0.5)
-			Textbox.Frame.Position = UDim2.new(1, -8, 0.5, 0)
-			Textbox.Input.TextXAlignment = Enum.TextXAlignment.Center
-			Textbox.Input.TextSize = 13
-			-- Components.Textbox left-indents its Input by 10px for normal text entry; a centred
-			-- number box has to drop that or the digits sit off-centre in a 58px frame.
-			Textbox.Input.Position = UDim2.fromOffset(0, 0)
-			Textbox.Input.Text = tostring(Priority.Value[name] or 0)
+				local Box = Components.Textbox(row.Button, true)
+				Box.Frame.Size = UDim2.fromOffset(58, 24)
+				Box.Frame.AnchorPoint = Vector2.new(1, 0.5)
+				Box.Frame.Position = UDim2.new(1, -8, 0.5, 0)
+				-- Rows sit at ZIndex 23 and the search bar at 24; match that band or the box can
+				-- render behind the holder.
+				Box.Frame.ZIndex = 24
+				Box.Input.ZIndex = 25
+				Box.Input.TextXAlignment = Enum.TextXAlignment.Center
+				Box.Input.TextSize = 13
+				-- Components.Textbox left-indents its Input by 10px for normal text entry; a centred
+				-- number box has to drop that or the digits sit off-centre in a 58px frame.
+				Box.Input.Position = UDim2.fromOffset(0, 0)
+				Box.Input.Text = tostring(number)
 
-			-- Commit on FocusLost only: committing per keystroke would re-sort the list out from
-			-- under the box you are typing in.
-			AddSignal(Textbox.Input.FocusLost, function()
-				commit(name, Textbox.Input.Text, Textbox.Input)
-			end)
+				-- Commit on FocusLost only: committing per keystroke would re-sort (and rebuild) the
+				-- list out from under the box being typed in.
+				Creator.AddSignal(Box.Input.FocusLost, function()
+					commit(row.Value, Box.Input.Text)
+				end)
+			end,
+		})
 
-			Frame.Parent = RowsHolder
-			Priority.Rows[name] = { Frame = Frame, Label = Label, Box = Textbox.Input }
+		-- The summary line. Overriding Display (rather than writing the label once) means every
+		-- internal Dropdown repaint keeps showing the ranking instead of a "selected value".
+		function Dropdown:Display()
+			if not Dropdown.DisplayLabel then return end
+			local parts = Priority:GetOrder()
+			Dropdown.DisplayLabel.Text = (#parts > 0)
+				and (Config.Title .. ": " .. table.concat(parts, " > "))
+				or "--"
 		end
 
-		-- Replaces the entries. Numbers already held for a surviving name are kept, so adding one
+		Priority.Dropdown = Dropdown
+		Priority.Elements = Dropdown.Elements
+		Priority.SetTitle = Dropdown.SetTitle
+		Priority.SetDesc = Dropdown.SetDesc
+		Priority.Visible = Dropdown.Visible
+
+		function Priority:Open() Dropdown:Open() end
+		function Priority:Close() Dropdown:Close() end
+
+		-- Replaces the entries. A number already held for a surviving name is KEPT, so adding an
 		-- entry in a later update never scrambles a ranking the user set.
 		function Priority:SetValues(NewValues)
-			for _, row in pairs(Priority.Rows) do
-				row.Frame:Destroy()
-			end
-			Priority.Rows = {}
 			Priority.Values = {}
 			for _, name in ipairs(NewValues or {}) do
 				Priority.Values[#Priority.Values + 1] = tostring(name)
@@ -6928,9 +6891,8 @@ ElementsTable.Priority = (function()
 			for i, name in ipairs(Priority.Values) do
 				-- Default: first declared entry gets the highest number.
 				Priority.Value[name] = kept[name] or math.clamp(count - i + 1, Priority.Min, Priority.Max)
-				buildRow(name)
 			end
-			refresh()
+			rerender(false)
 		end
 
 		-- Accepts { [name] = number }; unknown names are dropped and missing ones keep their
@@ -6944,9 +6906,7 @@ ElementsTable.Priority = (function()
 					end
 				end
 			end
-			local order = refresh()
-			Library:SafeCallback(Priority.Callback, order)
-			Library:SafeCallback(Priority.Changed, order)
+			rerender(true)
 		end
 
 		function Priority:OnChanged(Func)
@@ -6954,34 +6914,16 @@ ElementsTable.Priority = (function()
 			Func(Priority:GetOrder())
 		end
 
-		function Priority:Open()
-			Priority.Opened = true
-			RowsHolder.Visible = true
-		end
-
-		function Priority:Close()
-			Priority.Opened = false
-			RowsHolder.Visible = false
-		end
-
-		AddSignal(SummaryBar.MouseButton1Click, function()
-			if Priority.Opened then Priority:Close() else Priority:Open() end
-		end)
-
-		AddSignal(CopyButton.MouseButton1Click, function()
-			local clip = setclipboard or toclipboard or (syn and syn.write_clipboard)
-			if type(clip) == "function" then
-				pcall(clip, SummaryLabel.Text)
-			end
-		end)
-
 		function Priority:Destroy()
-			PriorityFrame:Destroy()
+			Dropdown:Destroy()
 			Library.Options[Idx] = nil
 		end
 
 		Priority:SetValues(Config.Values)
 
+		-- ⚠️ LAST, and it must be last: Dropdown:New already registered ITSELF under this Idx.
+		-- Overwriting the entry is what makes SaveManager persist the ranking through the Priority
+		-- parser instead of saving the underlying dropdown's (permanently nil) selected value.
 		Library.Options[Idx] = Priority
 		return Priority
 	end
