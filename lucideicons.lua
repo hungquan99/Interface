@@ -938,4 +938,5 @@ return {
 	["lucide-skullhub"] = "rbxassetid://95183678717613",
 	["lucide-hunghub"] = "rbxassetid://14467433545",
 	["lucide-cuboid"] = "rbxassetid://117329818290748",
+	["lucide-route"] = "rbxassetid://92054788599928",
 }
