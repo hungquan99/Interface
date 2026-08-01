@@ -3311,7 +3311,15 @@ Components.Window = (function()
 		-- ResizeStartFrame itself is still the (invisible-fill) resize
 		-- hitbox; this is purely decorative on top of it.
 		local ResizeGripRingDiameter = 26
-		local ResizeGripBoxSize = 26
+		-- Hitbox only - bigger than the ring on purpose. The math below
+		-- (ResizeGripOutset = BoxSize - Overlap) keeps this frame's near
+		-- corner pinned at a fixed -Overlap offset regardless of BoxSize,
+		-- so growing BoxSize only extends the touch/click target further
+		-- into the empty space past the window's corner - the visible
+		-- ring (ResizeGripRingDiameter, centered on that same fixed
+		-- corner) never moves or resizes. A finger is much less precise
+		-- than a mouse cursor, hence the bigger hitbox here than the arc.
+		local ResizeGripBoxSize = 44
 		-- The window's visible rounded edge already curves inward before
 		-- the theoretical square corner point, so anchoring the grip
 		-- fully at that square point (Outset = BoxSize) left a visible
@@ -5871,7 +5879,10 @@ ElementsTable.Slider = (function()
 		end)
 
 		Creator.AddSignal(SliderInput.InputBegan, function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			if
+				Input.UserInputType == Enum.UserInputType.MouseButton1
+				or Input.UserInputType == Enum.UserInputType.Touch
+			then
 				Dragging = false
 			end
 		end)
@@ -6587,7 +6598,10 @@ ElementsTable.Colorpicker = (function()
 
 			if Config.Transparency then
 				Creator.AddSignal(TransparencySlider.InputBegan, function(Input)
-					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+					if
+						Input.UserInputType == Enum.UserInputType.MouseButton1
+						or Input.UserInputType == Enum.UserInputType.Touch
+					then
 						while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
 							local MinY = TransparencySlider.AbsolutePosition.Y
 							local MaxY = MinY + TransparencySlider.AbsoluteSize.Y
