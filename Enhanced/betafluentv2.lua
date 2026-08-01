@@ -6896,6 +6896,10 @@ ElementsTable.Priority = (function()
 			end,
 		})
 
+		-- Priority's per-row number boxes need the dropdown docked inside the window; force it
+		-- even when the window has DropdownsOutsideWindow = true (which every normal Dropdown keeps honoring).
+		Dropdown.OpenToRight = false
+
 		-- The summary line. Overriding Display (rather than writing the label once) means every
 		-- internal Dropdown repaint keeps showing the ranking instead of a "selected value".
 		function Dropdown:Display()
