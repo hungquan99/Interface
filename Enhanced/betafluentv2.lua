@@ -3962,38 +3962,9 @@ Components.Window = (function()
 				end
 			end
 
-			-- Scale-only shrink/grow (UIScale), not a real Size tween: a real
-			-- Size tween forces every UIListLayout/ScrollingFrame/TextLabel
-			-- inside to re-flow at each in-between size, which is what caused
-			-- the garbled, overlapping look mid-animation. UIScale just
-			-- scales the already-laid-out frame visually, so nothing
-			-- reflows - clean shrink no matter how much content is inside.
-			--
-			-- Hiding Root / clearing MinimizeAnimBase happens in
-			-- RootScaleMotor's onComplete handler (set up above) instead of
-			-- a guessed task.delay, so it lines up with exactly when the
-			-- spring finishes - no more snap on the last frame. setGoal
-			-- also means a mid-animation re-toggle just redirects the same
-			-- spring, no stale timers to guard against.
-			if Window.Minimized then
-				-- Capture the true top-left position/size right before the
-				-- shrink starts - RootScaleMotor's onStep uses this to slide
-				-- Position toward center as Scale drops, so it shrinks in
-				-- place instead of shrinking toward the top-left corner.
-				Window.MinimizeAnimBase = {
-					X = Window.Root.Position.X.Offset,
-					Y = Window.Root.Position.Y.Offset,
-					SizeX = Window.Root.AbsoluteSize.X,
-					SizeY = Window.Root.AbsoluteSize.Y,
-				}
-
-				-- Keep it visible (and thus interactive-looking) throughout
-				-- the shrink; onComplete hides it once fully collapsed.
-				Window.RootScaleMotor:setGoal(Spring(0, { frequency = 6 }))
-			else
-				Window.Root.Visible = true
-				Window.RootScaleMotor:setGoal(Spring(1, { frequency = 6 }))
-			end
+			-- No shrink/grow animation - just toggle visibility instantly.
+			Window.RootScale.Scale = 1
+			Window.Root.Visible = not Window.Minimized
 
 			if not MinimizeNotif then
 				MinimizeNotif = true
