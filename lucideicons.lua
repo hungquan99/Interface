@@ -939,4 +939,6 @@ return {
 	["lucide-hunghub"] = "rbxassetid://14467433545",
 	["lucide-cuboid"] = "rbxassetid://117329818290748",
 	["lucide-route"] = "rbxassetid://92054788599928",
+	["lucide-tower-control"] = "rbxassetid://128131047012652",
+	["lucide-brain"] = "rbxassetid://116902501990569",
 }
