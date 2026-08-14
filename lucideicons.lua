@@ -941,4 +941,5 @@ return {
 	["lucide-route"] = "rbxassetid://92054788599928",
 	["lucide-tower-control"] = "rbxassetid://128131047012652",
 	["lucide-brain"] = "rbxassetid://116902501990569",
+	["lucide-footprints"] = "rbxassetid://80792036653047",
 }
