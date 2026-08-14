@@ -909,6 +909,88 @@ local GUI = New("ScreenGui", {
 Library.GUI = GUI
 ProtectGui(GUI)
 
+-- ===========================================================================
+-- Screen metrics - one source of truth for "how much room do we actually have"
+-- ===========================================================================
+-- Camera.ViewportSize is the WHOLE screen. This ScreenGui does not set
+-- IgnoreGuiInset, so the area it can actually draw in is shorter than that by
+-- the Roblox topbar inset (36px on desktop, taller on a lot of phones). Every
+-- fit / centre / clamp decision below goes through GetScreenSize instead of the
+-- camera, otherwise the window sits a topbar's worth too low and its bottom
+-- edge - the resize grip with it - hangs off a small screen with no way to drag
+-- it back.
+local function GetScreenSize()
+	local size = GUI.AbsoluteSize
+	-- AbsoluteSize reads (0, 0) for a frame or two right after the ScreenGui is
+	-- parented; fall back to the camera until the layout resolves.
+	if size.X < 1 or size.Y < 1 then
+		return Camera.ViewportSize
+	end
+	return size
+end
+
+-- Fires whenever the usable area changes: a phone rotating, a desktop window
+-- being resized, or the topbar inset appearing/disappearing. Both signals are
+-- needed - AbsoluteSize alone misses nothing, but it can settle a frame after
+-- the camera does, and ViewportSize alone misses inset-only changes.
+local function OnScreenSizeChanged(Function)
+	Creator.AddSignal(Camera:GetPropertyChangedSignal("ViewportSize"), Function)
+	Creator.AddSignal(GUI:GetPropertyChangedSignal("AbsoluteSize"), Function)
+end
+
+-- How much breathing room to leave around a window that had to be shrunk to
+-- fit. A phone has far less room to spare than a monitor.
+local ScreenMargin = Mobile and 6 or 16
+
+-- Floor for an automatic fit. Below this the tab strip and the content column
+-- stop being usable at all, so on a freak-tiny screen we would rather let a
+-- sliver hang off than shrink into an unreadable box.
+local MinWindowSize = Vector2.new(300, 240)
+
+-- Shrinks a requested size until it fits the usable screen, preserving its
+-- aspect ratio so a squeezed window still looks like the same window instead of
+-- a squashed one. Never grows: a small window on a big screen is left alone.
+local function FitSizeToScreen(Size)
+	local Screen = GetScreenSize()
+	local MaxX = math.max(MinWindowSize.X, Screen.X - ScreenMargin * 2)
+	local MaxY = math.max(MinWindowSize.Y, Screen.Y - ScreenMargin * 2)
+
+	local Width, Height = Size.X.Offset, Size.Y.Offset
+	if Width < 1 or Height < 1 then
+		return UDim2.fromOffset(math.min(MinWindowSize.X, MaxX), math.min(MinWindowSize.Y, MaxY))
+	end
+
+	local Scale = math.min(1, MaxX / Width, MaxY / Height)
+	Width = math.min(Width * Scale, MaxX)
+	Height = math.min(Height * Scale, MaxY)
+
+	-- The floor is itself clamped to the screen, so this can never hand back
+	-- something larger than what we just fitted to.
+	return UDim2.fromOffset(
+		math.floor(math.max(Width, math.min(MinWindowSize.X, MaxX))),
+		math.floor(math.max(Height, math.min(MinWindowSize.Y, MaxY)))
+	)
+end
+
+-- The tab strip is a fixed pixel column, sized for the window the script asked
+-- for. Once that window has to shrink to fit a phone, a 160-180px strip eats
+-- half of it and leaves the content column unreadable - so the strip shrinks by
+-- the same proportion the window did, and ONLY then. A window at or above its
+-- requested width keeps exactly the strip the script asked for, so every
+-- existing desktop layout is unchanged down to the pixel.
+local function FitTabWidth(Requested, WindowWidth, RequestedWidth)
+	Requested = Requested or 160
+	if not RequestedWidth or RequestedWidth < 1 or WindowWidth >= RequestedWidth then
+		return Requested
+	end
+	return math.floor(
+		math.clamp(Requested * (WindowWidth / RequestedWidth), math.min(84, Requested), Requested)
+	)
+end
+
+Library.Mobile = Mobile
+Library.GetScreenSize = GetScreenSize
+
 function Library:SafeCallback(Function, ...)
 	if not Function then
 		return
@@ -2704,9 +2786,13 @@ Components.Notification = (function()
 	function Notification:Init(GUI)
 		Library.ActiveNotifications = Library.ActiveNotifications or {}
 
+		-- A 30px inset off every edge is a lot of a phone screen; notifications
+		-- also stack from the bottom-right, which is exactly where a thumb sits.
+		local Margin = Mobile and 12 or 30
+
 		Notification.Holder = New("Frame", {
-			Position = UDim2.new(1, -30, 1, -30),
-			Size = UDim2.new(0, 310, 1, -30),
+			Position = UDim2.new(1, -Margin, 1, -Margin),
+			Size = UDim2.new(0, 310, 1, -Margin),
 			AnchorPoint = Vector2.new(1, 1),
 			BackgroundTransparency = 1,
 			Parent = GUI,
@@ -2718,6 +2804,18 @@ Components.Notification = (function()
 				Padding = UDim.new(0, 20),
 			}),
 		})
+
+		-- Every notification is Size = (1, 0, ...) against this holder, so
+		-- clamping the holder is all it takes to stop a card running off the
+		-- side of a narrow screen. Re-run on rotation.
+		local function FitHolder()
+			local Screen = GetScreenSize()
+			Notification.Holder.Size =
+				UDim2.new(0, math.clamp(Screen.X - Margin * 2, 180, 310), 1, -Margin)
+		end
+
+		FitHolder()
+		OnScreenSizeChanged(FitHolder)
 	end
 
 	function Notification:New(Config)
@@ -3259,10 +3357,20 @@ Components.Window = (function()
 	local New = Creator.New
 
 	return function(Config)
+		-- What the script ASKED for, kept separately from what it actually got.
+		-- Every later re-fit (rotation, screen resize) starts from this, so a
+		-- window that had to shrink on a small screen grows back to the
+		-- intended size the moment there is room for it again.
+		local RequestedSize = Config.Size or UDim2.fromOffset(480, 360)
+
 		local Window = {
 			Minimized = false,
 			Maximized = false,
-			Size = Config.Size,
+			-- ⭐ Fit before the first frame, not after: building at the
+			-- requested size and correcting later means one visible frame of a
+			-- window hanging off the bottom of a phone screen.
+			Size = FitSizeToScreen(RequestedSize),
+			RequestedSize = RequestedSize,
 			CurrentPos = 0,
 			TabWidth = 0,
 			Position = UDim2.fromOffset(0, 0),
@@ -3276,15 +3384,23 @@ Components.Window = (function()
 		Window.AcrylicPaint = Acrylic.AcrylicPaint()
 
 		local function CenterWindow()
-			local vp = Camera.ViewportSize
-			local x = math.max(0, (vp.X - Window.Size.X.Offset) / 2)
-			local y = math.max(0, (vp.Y - Window.Size.Y.Offset) / 2)
+			local Screen = GetScreenSize()
+			local x = math.max(0, (Screen.X - Window.Size.X.Offset) / 2)
+			local y = math.max(0, (Screen.Y - Window.Size.Y.Offset) / 2)
 			Window.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
 			if Window.Root then
 				Window.Root.Position = Window.Position
 			end
 		end
-		Window.TabWidth = Config.TabWidth
+		-- Always measured against the size the script ASKED for, never against
+		-- the current one - so the strip width is a pure function of how far
+		-- the window is from its intended width, and dragging the resize grip
+		-- can't make it jump when you let go.
+		local function CurrentTabWidth(WindowWidth)
+			return FitTabWidth(Config.TabWidth, WindowWidth, RequestedSize.X.Offset)
+		end
+
+		Window.TabWidth = CurrentTabWidth(Window.Size.X.Offset)
 
 		local Selector = New("Frame", {
 			Size = UDim2.fromOffset(4, 0),
@@ -3318,8 +3434,10 @@ Components.Window = (function()
 		-- into the empty space past the window's corner - the visible
 		-- ring (ResizeGripRingDiameter, centered on that same fixed
 		-- corner) never moves or resizes. A finger is much less precise
-		-- than a mouse cursor, hence the bigger hitbox here than the arc.
-		local ResizeGripBoxSize = 44
+		-- than a mouse cursor, hence the bigger hitbox here than the arc -
+		-- and bigger again on touch, where a fingertip covers ~45px and the
+		-- 44px box left almost no margin for a miss.
+		local ResizeGripBoxSize = Mobile and 58 or 44
 		-- The window's visible rounded edge already curves inward before
 		-- the theoretical square corner point, so anchoring the grip
 		-- fully at that square point (Outset = BoxSize) left a visible
@@ -3556,6 +3674,20 @@ Components.Window = (function()
 			Window.ContainerHolder
 		})
 
+		-- Re-lays out the three things whose geometry is derived from the tab
+		-- strip width, so the strip can narrow along with the window instead of
+		-- squeezing the content column to nothing on a phone. The Y half of
+		-- TabFrame.Size is read back rather than recomputed: it carries the
+		-- search-box and UserInfoTop variants set elsewhere, and rebuilding it
+		-- from scratch here would silently undo them.
+		local function ApplyTabWidth(Width)
+			Window.TabWidth = Width
+			TabFrame.Size = UDim2.new(0, Width, TabFrame.Size.Y.Scale, TabFrame.Size.Y.Offset)
+			Window.TabDisplay.Position = UDim2.fromOffset(Width + 26, 56)
+			Window.ContainerCanvas.Size = UDim2.new(1, -Width - 32, 1, -102)
+			Window.ContainerCanvas.Position = UDim2.fromOffset(Width + 26, 90)
+		end
+
 		-- Purely-for-looks bottom drag handle (like the WindUI reference)
 		-- - fills the empty space just below the window. Sits fully
 		-- outside the window's bottom edge (Window.Root doesn't clip its
@@ -3604,10 +3736,11 @@ Components.Window = (function()
 			Parent = Window.Root,
 		})
 
+		-- First placement only. Re-fitting/re-centring on later screen-size
+		-- changes is handled by RefitWindow below, which also has the motors
+		-- and the tab strip to keep in sync - something this early in the build
+		-- neither exists yet nor could animate.
 		CenterWindow()
-		Creator.AddSignal(Camera:GetPropertyChangedSignal("ViewportSize"), function()
-			CenterWindow()
-		end)
 
 		Window.TitleBar = Components.TitleBar({
 			Title = Config.Title,
@@ -3819,13 +3952,33 @@ Components.Window = (function()
 				OldSizeX = Window.Size.X.Offset
 				OldSizeY = Window.Size.Y.Offset
 			end
-			local SizeX = Value and Camera.ViewportSize.X or OldSizeX
-			local SizeY = Value and Camera.ViewportSize.Y or OldSizeY
+
+			local SizeX, SizeY
+			if Value then
+				-- Usable area, not the raw viewport: maximising to
+				-- Camera.ViewportSize pushes the bottom of the window under the
+				-- screen by exactly the topbar inset.
+				local Screen = GetScreenSize()
+				SizeX, SizeY = Screen.X, Screen.Y
+			else
+				-- The screen may have rotated/shrunk while maximised, so the
+				-- remembered size is re-fitted rather than restored blindly.
+				-- OldSize is only nil if something restores a window that was
+				-- never maximised, in which case the script's own size is the
+				-- honest answer.
+				local Previous = (OldSizeX and OldSizeY)
+					and UDim2.fromOffset(OldSizeX, OldSizeY)
+					or (Window.UserSize or Window.RequestedSize)
+				local Restored = FitSizeToScreen(Previous)
+				SizeX, SizeY = Restored.X.Offset, Restored.Y.Offset
+			end
+
 			SizeMotor:setGoal({
 				X = Flipper[Instant and "Instant" or "Spring"].new(SizeX, { frequency = 6 }),
 				Y = Flipper[Instant and "Instant" or "Spring"].new(SizeY, { frequency = 6 }),
 			})
 			Window.Size = UDim2.fromOffset(SizeX, SizeY)
+			ApplyTabWidth(CurrentTabWidth(SizeX))
 
 			if not NoPos then
 				PosMotor:setGoal({
@@ -3833,6 +3986,116 @@ Components.Window = (function()
 					Y = Spring(Value and 0 or Window.Position.Y.Offset, { frequency = 6 }),
 				})
 			end
+
+			-- Keep the tracked position in step with the goal the motor was
+			-- just given, so a later clamp/drag starts from where the window
+			-- actually is. Skipped when NoPos, since then nothing moved.
+			if Value and not NoPos then
+				Window.Position = UDim2.fromOffset(0, 0)
+			end
+		end
+
+		-- =================================================================
+		-- Fit-to-screen
+		-- =================================================================
+		-- Keeps the window inside the screen. On mobile it is pushed fully back
+		-- into view - the window always fits by construction there, and a
+		-- half-off-screen window on a phone is unrecoverable because there is
+		-- no way to grab a title bar you cannot see. On desktop only enough of
+		-- the title bar is guaranteed to stay grabbable, so parking a window
+		-- mostly off to one side still works.
+		local function ClampWindowPosition(instant)
+			local Screen = GetScreenSize()
+			local W, H = Window.Size.X.Offset, Window.Size.Y.Offset
+
+			local MinX, MinY, MaxX, MaxY
+			if Mobile then
+				MinX, MinY = 0, 0
+				MaxX, MaxY = math.max(0, Screen.X - W), math.max(0, Screen.Y - H)
+			else
+				MinX, MinY = math.min(0, -(W - 120)), 0
+				MaxX, MaxY = math.max(0, Screen.X - 120), math.max(0, Screen.Y - 40)
+			end
+
+			local X = math.clamp(Window.Position.X.Offset, MinX, MaxX)
+			local Y = math.clamp(Window.Position.Y.Offset, MinY, MaxY)
+			if X == Window.Position.X.Offset and Y == Window.Position.Y.Offset then
+				return
+			end
+
+			Window.Position = UDim2.fromOffset(math.floor(X), math.floor(Y))
+			PosMotor:setGoal({
+				X = instant and Instant(Window.Position.X.Offset) or Spring(Window.Position.X.Offset, { frequency = 6 }),
+				Y = instant and Instant(Window.Position.Y.Offset) or Spring(Window.Position.Y.Offset, { frequency = 6 }),
+			})
+		end
+
+		local function RecenterWindow(instant)
+			local Screen = GetScreenSize()
+			Window.Position = UDim2.fromOffset(
+				math.floor(math.max(0, (Screen.X - Window.Size.X.Offset) / 2)),
+				math.floor(math.max(0, (Screen.Y - Window.Size.Y.Offset) / 2))
+			)
+			PosMotor:setGoal({
+				X = instant and Instant(Window.Position.X.Offset) or Spring(Window.Position.X.Offset, { frequency = 6 }),
+				Y = instant and Instant(Window.Position.Y.Offset) or Spring(Window.Position.Y.Offset, { frequency = 6 }),
+			})
+		end
+
+		-- ⭐ The whole point of the mobile work: whenever the usable screen area
+		-- changes (a phone rotating is the common one), re-derive the biggest
+		-- size that still fits and re-apply it - size, tab strip and position
+		-- together. The size it fits FROM is whatever the user last dragged the
+		-- resize grip to, falling back to the size the script asked for, so a
+		-- hand-picked size survives a rotation and a default-size window grows
+		-- back once there is room again.
+		local function RefitWindow(instant)
+			if Window.Maximized then
+				-- Maximised means "exactly the screen", so a screen-size change
+				-- is just a re-maximise; it re-applies the tab strip too.
+				Window.Maximize(true, false, true)
+				return
+			end
+
+			local Fitted = FitSizeToScreen(Window.UserSize or Window.RequestedSize)
+			Window.Size = Fitted
+			ApplyTabWidth(CurrentTabWidth(Fitted.X.Offset))
+
+			SizeMotor:setGoal({
+				X = instant and Instant(Fitted.X.Offset) or Spring(Fitted.X.Offset, { frequency = 6 }),
+				Y = instant and Instant(Fitted.Y.Offset) or Spring(Fitted.Y.Offset, { frequency = 6 }),
+			})
+
+			-- A window the user never moved stays centred; one they parked
+			-- somewhere deliberately keeps its spot and is only pulled back far
+			-- enough to stay reachable.
+			if Window.UserMoved then
+				ClampWindowPosition(instant)
+			else
+				RecenterWindow(instant)
+			end
+
+			-- If the entrance (or minimize/restore) animation is mid-flight it
+			-- is driving Root.Position itself, from a base captured before this
+			-- fit ran - so move that base with us. Without this, a refit landing
+			-- during the pop-in (which happens on load, the moment the
+			-- ScreenGui's AbsoluteSize resolves) would let the animation put the
+			-- window back at its pre-fit spot on its final frame.
+			local Base = Window.MinimizeAnimBase
+			if Base then
+				Base.X, Base.Y = Window.Position.X.Offset, Window.Position.Y.Offset
+				Base.SizeX, Base.SizeY = Window.Size.X.Offset, Window.Size.Y.Offset
+			end
+		end
+
+		OnScreenSizeChanged(function()
+			RefitWindow(true)
+		end)
+
+		-- Public: lets a script force a re-fit (e.g. after changing TabWidth or
+		-- toggling something that changes the layout).
+		function Window:FitToScreen(instant)
+			RefitWindow(instant ~= false)
 		end
 
 		-- Same drag logic as Window.TitleBar.Frame below, factored out so
@@ -3897,7 +4160,23 @@ Components.Window = (function()
 		Creator.AddSignal(UserInputService.InputChanged, function(Input)
 			if Input == DragInput and Dragging then
 				local Delta = Input.Position - MousePos
-				Window.Position = UDim2.fromOffset(StartPos.X.Offset + Delta.X, StartPos.Y.Offset + Delta.Y)
+				local X, Y = StartPos.X.Offset + Delta.X, StartPos.Y.Offset + Delta.Y
+
+				-- On a phone the window is always small enough to fit, so it is
+				-- pinned inside the screen: a window dragged past the edge of a
+				-- touchscreen cannot be dragged back, because the title bar you
+				-- would have to grab is what went off the edge.
+				if Mobile then
+					local Screen = GetScreenSize()
+					X = math.clamp(X, 0, math.max(0, Screen.X - Window.Size.X.Offset))
+					Y = math.clamp(Y, 0, math.max(0, Screen.Y - Window.Size.Y.Offset))
+				end
+
+				Window.Position = UDim2.fromOffset(X, Y)
+				-- Remembers that this window was placed by hand, so a later
+				-- rotation re-fits it in place instead of yanking it back to
+				-- the centre.
+				Window.UserMoved = true
 				PosMotor:setGoal({
 					X = Instant(Window.Position.X.Offset),
 					Y = Instant(Window.Position.Y.Offset),
@@ -3916,21 +4195,52 @@ Components.Window = (function()
 				local StartSize = Window.Size
 
 				local TargetSize = Vector3.new(StartSize.X.Offset, StartSize.Y.Offset, 0) + Vector3.new(1, 1, 0) * Delta
+
+				local Screen = GetScreenSize()
+				local FitX = math.max(MinWindowSize.X, Screen.X - ScreenMargin * 2)
+				local FitY = math.max(MinWindowSize.Y, Screen.Y - ScreenMargin * 2)
+				-- The old floor was a flat 470x380, which is wider than a fair
+				-- few phone screens - the window could not be shrunk to fit at
+				-- all there. The floor now yields to the screen when the screen
+				-- is the smaller of the two.
+				local MinX, MinY = math.min(470, FitX), math.min(380, FitY)
+				-- And on mobile the ceiling is the screen itself, so the grip
+				-- cannot drag the window back out past the edges.
+				local MaxX, MaxY = Mobile and FitX or 2048, Mobile and FitY or 2048
+
 				local TargetSizeClamped =
-					Vector2.new(math.clamp(TargetSize.X, 470, 2048), math.clamp(TargetSize.Y, 380, 2048))
+					Vector2.new(math.clamp(TargetSize.X, MinX, MaxX), math.clamp(TargetSize.Y, MinY, MaxY))
 
 				SizeMotor:setGoal({
 					X = Flipper.Instant.new(TargetSizeClamped.X),
 					Y = Flipper.Instant.new(TargetSizeClamped.Y),
 				})
+
+				-- Live, so the tab strip narrows as you drag rather than
+				-- snapping once you let go.
+				ApplyTabWidth(CurrentTabWidth(TargetSizeClamped.X))
 			end
 		end)
 
 		Creator.AddSignal(UserInputService.InputEnded, function(Input)
-			if Resizing == true or Input.UserInputType == Enum.UserInputType.Touch then
-				Resizing = false
-				Window.Size = UDim2.fromOffset(SizeMotor:getValue().X, SizeMotor:getValue().Y)
+			-- Previously any touch-end at all ran this, resizing or not. Gate on
+			-- Resizing (which only a grip press sets) so tapping a toggle on a
+			-- phone no longer counts as "the user chose this size".
+			if not Resizing then
+				return
 			end
+			if
+				Input.UserInputType ~= Enum.UserInputType.MouseButton1
+				and Input.UserInputType ~= Enum.UserInputType.Touch
+			then
+				return
+			end
+
+			Resizing = false
+			Window.Size = UDim2.fromOffset(SizeMotor:getValue().X, SizeMotor:getValue().Y)
+			-- Hand-picked size: every later re-fit starts from this instead of
+			-- the size the script asked for.
+			Window.UserSize = Window.Size
 		end)
 
 		Creator.AddSignal(Window.TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
@@ -4033,19 +4343,28 @@ Components.Window = (function()
 				ThemeTag = { TextColor3 = "Text" },
 			})
 
+			-- A dialog is sized against the window, but a phone-sized window can
+			-- be narrower than the old flat 300px minimum - which made the
+			-- dialog wider than the window it belongs to and pushed its buttons
+			-- off the screen. Everything below is clamped to the usable screen
+			-- as well as to the window.
+			local Screen = GetScreenSize()
+			local screenLimit = math.max(240, Screen.X - 40)
+			local screenHeightLimit = math.max(165, Screen.Y - 40)
+
 			New("UISizeConstraint", {
-				MinSize = Vector2.new(300, 165),
-				MaxSize = Vector2.new(620, math.huge),
+				MinSize = Vector2.new(math.min(300, screenLimit), math.min(165, screenHeightLimit)),
+				MaxSize = Vector2.new(math.min(620, screenLimit), math.huge),
 				Parent = Dialog.Root,
 			})
 
-			local maxWidth = math.min(620, Window.Size.X.Offset - 120)
-			local baseWidth = math.max(300, math.min(maxWidth, Content.TextBounds.X + 40))
-			Dialog.Root.Size = UDim2.fromOffset(baseWidth, 165)
+			local maxWidth = math.min(620, screenLimit, math.max(240, Window.Size.X.Offset - 40))
+			local baseWidth = math.max(math.min(300, maxWidth), math.min(maxWidth, Content.TextBounds.X + 40))
+			Dialog.Root.Size = UDim2.fromOffset(baseWidth, math.min(165, screenHeightLimit))
 			ContentHolder.Size = UDim2.new(1, -40, 1, -110)
 			task.defer(function()
 				local contentHeight = Content.TextBounds.Y
-				local desired = math.clamp(contentHeight + 110, 165, 420)
+				local desired = math.clamp(contentHeight + 110, math.min(165, screenHeightLimit), math.min(420, screenHeightLimit))
 				Dialog.Root.Size = UDim2.fromOffset(baseWidth, desired)
 				ContentHolder.CanvasSize = UDim2.fromOffset(0, contentHeight)
 			end)
@@ -4418,7 +4737,17 @@ local function HookConnectedInput(Target, InputConfig, InputBoxFrame, InputBox)
 
 	if InputConfig.Finished then
 		Creator.AddSignal(InputBox.FocusLost, function(enter)
-			if not enter then return end
+			-- A "Large" box is MultiLine, and in a MultiLine TextBox Enter
+			-- inserts a newline instead of releasing focus - so `enter` is
+			-- NEVER true for one. Gating on it meant a large box could never
+			-- commit what was typed or pasted into it: the text sat visible in
+			-- the box while InputValue stayed empty forever. Clicking (or, on a
+			-- phone, tapping) away is how you finish editing a textarea, so
+			-- that is what commits it. Single-line boxes keep the old
+			-- enter-to-confirm behaviour.
+			if not enter and InputConfig.Size ~= "Large" then
+				return
+			end
 			Target:SetInputValue(InputBox.Text)
 		end)
 	else
@@ -8482,7 +8811,10 @@ function Library:CreateMinimizer(Config)
 	local Button = Instance.new("ImageButton")
 	Button.Name = "MinimizeButton"
 	Button.Parent = DragUI
-	Button.Size = Config.Size or UDim2.new(0, 50, 0, 50)
+	-- This is the ONLY way back to a minimized hub on a phone (there is no
+	-- keyboard to press the minimize bind on), so it gets a full-size touch
+	-- target there rather than the 50px desktop puck.
+	Button.Size = Config.Size or (Mobile and UDim2.new(0, 60, 0, 60) or UDim2.new(0, 50, 0, 50))
 	Button.Position = Config.Position or UDim2.new(1, -70, 1, -85)
 	Button.BackgroundTransparency = (typeof(Config.Transparency) == "number") and math.clamp(Config.Transparency, 0, 1) or 0.3
 	Button.BorderSizePixel = 0
@@ -8545,12 +8877,21 @@ function Library:CreateMinimizer(Config)
 		TweenService:Create(Button, BtnTweenInfo, { Size = BaseSize }):Play()
 	end)
 
+	-- Where the button sits in ITS OWN ScreenGui's coordinates, which is what
+	-- an offset .Position is measured in. AbsolutePosition is screen-space and
+	-- so includes the topbar inset this ScreenGui is pushed down by; feeding it
+	-- straight back into .Position made the button jump down by the inset the
+	-- first time it was dragged.
+	local function LocalButtonPosition()
+		return Button.AbsolutePosition - DragUI.AbsolutePosition
+	end
+
 	Creator.AddSignal(Button.InputBegan, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			State.isDragging = false
 			State.dragging = true
 			State.dragStart = Vector2.new(input.Position.X, input.Position.Y)
-			State.startPos = Button.AbsolutePosition
+			State.startPos = LocalButtonPosition()
 
 			local Conn
 			Conn = input.Changed:Connect(function()
@@ -8573,14 +8914,39 @@ function Library:CreateMinimizer(Config)
 			end
 
 			local newPos = State.startPos + delta
-			local screenSize = workspace.CurrentCamera.ViewportSize
+			-- Usable area, not the raw viewport: this ScreenGui is inset by the
+			-- topbar like the main one, so clamping against ViewportSize let the
+			-- button be dragged a topbar's worth off the bottom of the screen.
+			local screenSize = GetScreenSize()
 			local btnSize = Button.AbsoluteSize
 
 			Button.Position = UDim2.new(
-				0, math.clamp(newPos.X, 0, screenSize.X - btnSize.X),
-				0, math.clamp(newPos.Y, 0, screenSize.Y - btnSize.Y)
+				0, math.clamp(newPos.X, 0, math.max(0, screenSize.X - btnSize.X)),
+				0, math.clamp(newPos.Y, 0, math.max(0, screenSize.Y - btnSize.Y))
 			)
 		end
+	end)
+
+	-- Rotating a phone can leave the button parked outside the new screen
+	-- bounds, and it is the only way back to a minimized hub there - so pull it
+	-- back into view whenever the usable area changes. The measured position is
+	-- used rather than .Position so the scale-based default resolves to real
+	-- pixels before being clamped.
+	OnScreenSizeChanged(function()
+		local screenSize = GetScreenSize()
+		local btnSize = Button.AbsoluteSize
+		if btnSize.X < 1 or btnSize.Y < 1 then
+			return
+		end
+
+		local pos = LocalButtonPosition()
+		local x = math.clamp(pos.X, 0, math.max(0, screenSize.X - btnSize.X))
+		local y = math.clamp(pos.Y, 0, math.max(0, screenSize.Y - btnSize.Y))
+		if math.abs(x - pos.X) < 1 and math.abs(y - pos.Y) < 1 then
+			return
+		end
+
+		Button.Position = UDim2.fromOffset(x, y)
 	end)
 
 	self.Minimizer = DragUI
