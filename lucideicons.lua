@@ -942,4 +942,6 @@ return {
 	["lucide-tower-control"] = "rbxassetid://128131047012652",
 	["lucide-brain"] = "rbxassetid://116902501990569",
 	["lucide-footprints"] = "rbxassetid://80792036653047",
+	["lucide-brain-circuit"] = "rbxassetid://130830898675113",
+	["lucide-brain-cog"] = "rbxassetid://76347059769903",
 }
