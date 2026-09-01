@@ -944,4 +944,5 @@ return {
 	["lucide-footprints"] = "rbxassetid://80792036653047",
 	["lucide-brain-circuit"] = "rbxassetid://130830898675113",
 	["lucide-brain-cog"] = "rbxassetid://76347059769903",
+	["fishing-rod"] = "rbxassetid://71754848048049",
 }
