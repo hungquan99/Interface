@@ -946,4 +946,6 @@ return {
 	["lucide-brain-cog"] = "rbxassetid://76347059769903",
 	["lucide-fishing-rod"] = "rbxassetid://71754848048049",
 	["lucide-fish"] = "rbxassetid://114555142566431",
+	["lucide-worm"] = "rbxassetid://115752311548091",
+	["lucide-fishing-rod"] = "rbxassetid://71754848048049",
 }
