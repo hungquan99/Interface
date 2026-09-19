@@ -949,4 +949,5 @@ return {
 	["lucide-worm"] = "rbxassetid://115752311548091",
 	["lucide-fishing-rod"] = "rbxassetid://71754848048049",
 	["lucide-store"] = "rbxassetid://90338129673705",
+	["lucide-scroll-text"] = "rbxassetid://97321022666868",
 }
