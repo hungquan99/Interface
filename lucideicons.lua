@@ -950,4 +950,5 @@ return {
 	["lucide-fishing-rod"] = "rbxassetid://71754848048049",
 	["lucide-store"] = "rbxassetid://90338129673705",
 	["lucide-scroll-text"] = "rbxassetid://97321022666868",
+	["lucide-triangle-alert"] = "rbxassetid://125920361880643",
 }
