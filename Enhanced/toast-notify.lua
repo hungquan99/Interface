@@ -41,7 +41,7 @@ local TYPES = {
 local H = Enum.HorizontalAlignment
 local V = Enum.VerticalAlignment
 local POSITIONS = {
-	BottomCenter = { Anchor = Vector2.new(0.5, 1), Pos = UDim2.new(0.5, 0, 1, -40), H = H.Center, V = V.Bottom, Slide = 14 },
+	BottomCenter = { Anchor = Vector2.new(0.5, 1), Pos = UDim2.new(0.5, 0, 1, -20), H = H.Center, V = V.Bottom, Slide = 14 },
 	BottomRight = { Anchor = Vector2.new(1, 1), Pos = UDim2.new(1, -20, 1, -20), H = H.Right, V = V.Bottom, Slide = 14 },
 	BottomLeft = { Anchor = Vector2.new(0, 1), Pos = UDim2.new(0, 20, 1, -20), H = H.Left, V = V.Bottom, Slide = 14 },
 	TopCenter = { Anchor = Vector2.new(0.5, 0), Pos = UDim2.new(0.5, 0, 0, 20), H = H.Center, V = V.Top, Slide = -14 },
