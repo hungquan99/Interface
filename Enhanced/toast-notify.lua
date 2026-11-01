@@ -5,6 +5,7 @@
     Usage:
         local Notify = loadstring(game:HttpGet("YOUR_URL"))()
         local notif = Notify.new({ Position = "BottomCenter", MaxToasts = 5 })
+        -- optional: Scale = 0.8 forces a UI scale (auto: 0.8 on mobile, 1 on desktop)
 
         notif:Send({ Title = "HQ99 - test", Text = "Authenticated in 6.00s", Type = "success", Duration = 4 })
         notif:Success("Build v4 published", "no obf")
@@ -19,6 +20,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
+local UserInputService = game:GetService("UserInputService")
 
 local GUI_NAME = "HQ99_Notify"
 
@@ -124,9 +126,37 @@ function Notify.new(options)
 		Name = GUI_NAME,
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
-		DisplayOrder = 999,
+		DisplayOrder = 2147483647, -- max: draws above every other ScreenGui
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	})
+	pcall(function()
+		self.Gui.OnTopOfCoreBlur = true -- also render above Roblox core UI
+	end)
+
+	-- scaling: smaller on mobile / narrow screens
+	local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local baseScale = options.Scale or (isMobile and 0.8 or 1)
+
+	local uiScale = create("UIScale", { Scale = 1 })
+	local scaler = create("Frame", {
+		Name = "Scaler",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Parent = self.Gui,
+	}, { uiScale })
+
+	local function updateScale()
+		local vx = self.Gui.AbsoluteSize.X
+		local s = baseScale
+		if vx > 0 then
+			s = math.min(baseScale, (vx - 24) / 420) -- keep toast inside the screen
+		end
+		s = math.clamp(s, 0.5, 2)
+		uiScale.Scale = s
+		scaler.Size = UDim2.fromScale(1 / s, 1 / s)
+	end
+	self._uiScale = uiScale
+	self.Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScale)
 
 	self.Container = create("Frame", {
 		Name = "Container",
@@ -135,7 +165,7 @@ function Notify.new(options)
 		Position = cfg.Pos,
 		Size = UDim2.fromOffset(440, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Parent = self.Gui,
+		Parent = scaler,
 	}, {
 		create("UIListLayout", {
 			Padding = UDim.new(0, 8),
@@ -146,6 +176,7 @@ function Notify.new(options)
 	})
 
 	mount(self.Gui)
+	updateScale()
 	return self
 end
 
@@ -346,7 +377,7 @@ function Notify:Send(opts)
 			return
 		end
 
-		local height = toast.AbsoluteSize.Y
+		local height = toast.AbsoluteSize.Y / self._uiScale.Scale -- AbsoluteSize is in screen pixels
 		TweenService:Create(holder, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			Size = UDim2.fromOffset(width, height),
 		}):Play()
