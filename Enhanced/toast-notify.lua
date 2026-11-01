@@ -1,3 +1,21 @@
+--[[
+    HQ99 Notify
+    Clean toast notifications, HQ99 loader style.
+
+    Usage:
+        local Notify = loadstring(game:HttpGet("YOUR_URL"))()
+        local notif = Notify.new({ Position = "BottomCenter", MaxToasts = 5 })
+
+        notif:Send({ Title = "HQ99 - test", Text = "Authenticated in 6.00s", Type = "success", Duration = 4 })
+        notif:Success("Build v4 published", "no obf")
+        notif:Info("HQ99", "Loading script...")
+        notif:Warning("Key expiring", "2 days left")
+        notif:Error("binding_mismatch", "HWID does not match")
+
+    Positions: BottomCenter | BottomRight | BottomLeft | TopCenter | TopRight | TopLeft
+    Types:     success | info | warning | error
+]]
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
@@ -23,7 +41,7 @@ local TYPES = {
 local H = Enum.HorizontalAlignment
 local V = Enum.VerticalAlignment
 local POSITIONS = {
-	BottomCenter = { Anchor = Vector2.new(0.5, 1), Pos = UDim2.new(0.5, 0, 1, -72), H = H.Center, V = V.Bottom, Slide = 14 },
+	BottomCenter = { Anchor = Vector2.new(0.5, 1), Pos = UDim2.new(0.5, 0, 1, -40), H = H.Center, V = V.Bottom, Slide = 14 },
 	BottomRight = { Anchor = Vector2.new(1, 1), Pos = UDim2.new(1, -20, 1, -20), H = H.Right, V = V.Bottom, Slide = 14 },
 	BottomLeft = { Anchor = Vector2.new(0, 1), Pos = UDim2.new(0, 20, 1, -20), H = H.Left, V = V.Bottom, Slide = 14 },
 	TopCenter = { Anchor = Vector2.new(0.5, 0), Pos = UDim2.new(0.5, 0, 0, 20), H = H.Center, V = V.Top, Slide = -14 },
@@ -168,12 +186,6 @@ function Notify:Send(opts)
 		Parent = holder,
 	}, {
 		create("UICorner", { CornerRadius = UDim.new(0, 10) }),
-		create("UIStroke", {
-			Color = THEME.Border,
-			Transparency = 0.88,
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		}),
 	})
 
 	local content = create("Frame", {
@@ -185,7 +197,7 @@ function Notify:Send(opts)
 	}, {
 		create("UIPadding", {
 			PaddingTop = UDim.new(0, 12),
-			PaddingBottom = UDim.new(0, 14),
+			PaddingBottom = UDim.new(0, 12),
 			PaddingLeft = UDim.new(0, 14),
 			PaddingRight = UDim.new(0, 14),
 		}),
@@ -272,18 +284,6 @@ function Notify:Send(opts)
 		})
 	end
 
-	-- progress bar (bottom edge)
-	local bar = create("Frame", {
-		Name = "Bar",
-		BackgroundColor3 = THEME.Bar,
-		BackgroundTransparency = 0.35,
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, 0),
-		Size = UDim2.new(1, 0, 0, 2),
-		Parent = toast,
-	})
-
 	-- click to dismiss
 	local button = create("TextButton", {
 		Name = "Hit",
@@ -354,10 +354,6 @@ function Notify:Send(opts)
 			GroupTransparency = 0,
 			Position = UDim2.fromOffset(0, 0),
 		}):Play()
-		TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-			Size = UDim2.new(0, 0, 0, 2),
-		}):Play()
-
 		task.delay(duration, dismiss)
 	end)
 
