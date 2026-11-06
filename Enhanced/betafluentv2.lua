@@ -4,6 +4,7 @@
     - Fluent UI by @dawid: https://github.com/dawid-scripts/Fluent
     - Fluent Plus: https://github.com/discoart/fluent-plus-v2
 ]]--
+
 game:GetService'Lighting'game:GetService'RunService'local a=game:GetService
 'Players'.LocalPlayer game:GetService'UserInputService'local b,c,d,e,f,g,h=game:
 GetService'TweenService',game:GetService'TextService',game:GetService'Workspace'
@@ -322,13 +323,14 @@ math.floor(math.clamp(H*(I/J),math.min(84,H),H))end n.Mobile=i n.GetScreenSize=
 GetScreenSize local H={Presets={Normal={Pad=13,Gap=5,TitleSize=13,TitleHeight=14
 ,DescSize=12,DescHeight=14,Control=30,ControlText=14,Icon=16,ToggleW=36,ToggleH=
 18,Knob=14,Swatch=26,ConnectedTop=13,ConnectedGap=8,ConnectedBottom=13,
-SectionTitle=18,SectionHeader=25,CardTitle=12,CardHeader=22,CardPad=4},Compact={
-Pad=8,Gap=4,TitleSize=12,TitleHeight=13,DescSize=11,DescHeight=12,Control=24,
-ControlText=12,Icon=14,ToggleW=30,ToggleH=16,Knob=12,Swatch=22,ConnectedTop=8,
-ConnectedGap=6,ConnectedBottom=8,SectionTitle=15,SectionHeader=22,CardTitle=11,
-CardHeader=19,CardPad=3}}}function H.Apply(I)H.Compact=I and true or false H.M=H
-.Presets[H.Compact and'Compact'or'Normal']n.Compact=H.Compact end H.Apply(i)n.
-Density=H n.SectionCards=false n.SectionObjects={}C.RowHosts={}C.CardTag={
+SectionTitle=18,SectionHeader=25,CardTitle=12,CardHeader=22,CardPad=4,ListRow=32
+,ListText=13,ListSearch=28},Compact={Pad=8,Gap=4,TitleSize=12,TitleHeight=13,
+DescSize=11,DescHeight=12,Control=24,ControlText=12,Icon=14,ToggleW=30,ToggleH=
+16,Knob=12,Swatch=22,ConnectedTop=8,ConnectedGap=6,ConnectedBottom=8,
+SectionTitle=15,SectionHeader=22,CardTitle=11,CardHeader=19,CardPad=3,ListRow=26
+,ListText=12,ListSearch=24}}}function H.Apply(I)H.Compact=I and true or false H.
+M=H.Presets[H.Compact and'Compact'or'Normal']n.Compact=H.Compact end H.Apply(i)n
+.Density=H n.SectionCards=false n.SectionObjects={}C.RowHosts={}C.CardTag={
 BackgroundColor3='Element',BackgroundTransparency='ElementTransparency'}C.RowTag
 ={BackgroundColor3='Element'}function C.RetagQuiet(I,J)local K=C.Registry[I]if K
 then K.Properties=J end end function C.MakeRowable(I,J,K,L)local M={Frame=I,
@@ -665,66 +667,69 @@ RefreshDividers()MeasureContent()if _.Collapsed then if not _.Animating then _.
 Container.Size=UDim2.new(1,0,0,0)_.Root.Size=UDim2.new(1,0,0,_.HeaderPad)end
 else ApplyHeights()end end function _.SetCard(as,at)if at==nil then _.CardPref=
 nil else _.CardPref=at and true or false end _:ApplyCard()end function _.IsCard(
-as)return _.CardOn end function _.SetCollapsed(as,at,au)at=not not at if _.
-Collapsed==at then return end _.Collapsed=at local av,aw,ax,ay=at and 0 or _.
-ContentHeight,at and _.HeaderPad or(_.ContentHeight+_.HeaderPad),at and 180 or 0
-,_.Container.Size.Y.Offset local az=av-ay local aA=GetSectionAnimInfo(az)if au
-then if _.ContainerTween then _.ContainerTween:Cancel()end if _.RootTween then _
-.RootTween:Cancel()end if _.ArrowTween then _.ArrowTween:Cancel()end _.Animating
-=false _.Container.Size=UDim2.new(1,0,0,av)_.Root.Size=UDim2.new(1,0,0,aw)ap.
-Rotation=ax _.BodyStroke.Enabled=_.CardOn and not at else if _.ContainerTween
-then _.ContainerTween:Cancel()end if _.RootTween then _.RootTween:Cancel()end if
-_.ArrowTween then _.ArrowTween:Cancel()end _.Animating=true _.AnimToken=_.
-AnimToken+1 local aB=_.AnimToken if not at then _.BodyStroke.Enabled=_.CardOn
-end _.ContainerTween=b:Create(_.Container,aA,{Size=UDim2.new(1,0,0,av)})_.
-RootTween=b:Create(_.Root,aA,{Size=UDim2.new(1,0,0,aw)})_.ArrowTween=b:Create(ap
-,ad,{Rotation=ax})_.ContainerTween:Play()_.RootTween:Play()_.ArrowTween:Play()_.
-ContainerTween.Completed:Connect(function()if _.AnimToken~=aB then return end _.
-Animating=false if not _.Collapsed then _.Container.Size=UDim2.new(1,0,0,_.
-ContentHeight)_.Root.Size=UDim2.new(1,0,0,_.ContentHeight+_.HeaderPad)else _.
-Root.Size=UDim2.new(1,0,0,_.HeaderPad)_.BodyStroke.Enabled=false end end)end end
-function _.Toggle(as)_:SetCollapsed(not _.Collapsed)end function _.IsCollapsed(
-as)return _.Collapsed end function _.SetTitle(as,at)at=o.Text(at)or''_.RawTitle=
-at am.Text=_.CardOn and CardText(at)or at if n.Windows and#n.Windows>0 then
-local au=n.Windows[#n.Windows]if au and au.AllElements and au.AllElements[_.Root
-]then au.AllElements[_.Root].title=at end end end C.AddSignal(aq.
-MouseButton1Click,function()_:Toggle()end)_:ApplyCard(true)if V then _:
-SetCollapsed(true,true)end if n.Windows and#n.Windows>0 then local as=n.Windows[
-#n.Windows]if as and as.RegisterElement then as.RegisterElement(_.Root,S,
-'Section')end end if Y then _.RemoveLocale=o.Attach(_,'Title',Y)end table.
-insert(n.SectionObjects,_)return _ end end)()aa.Tab=(function()local ab,ac,ad,ae
-,af=C.New,B.Spring.new,B.Instant.new,aa,{Window=nil,Tabs={},Containers={},
-SelectedTab=0,TabCount=0}local function ResolveSectionConfig(ag,ah,ai,aj)if
-type(ag)=='table'and not o.IsTagged(ag)then local ak=ag return ak.Title,ak.Icon,
-ak.DefaultCollapsed,ak.Idx,ak.Unstyled,ak.Card end return ag,ah,ai,aj,false,nil
-end local ag,ah=8,4 local function MakeColumnHost(ai,aj)local ak,al=ab('Frame',{
-Name='SectionColumns',Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y
-,BackgroundTransparency=1,LayoutOrder=7,Parent=ai},{ab('UIListLayout',{
-FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,ag),SortOrder=
-Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top})}),{}
-for am=1,aj do al[am]=ab('Frame',{Name='Column'..am,Size=UDim2.new(1/aj,-ag*(aj-
-1)/aj,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,
-LayoutOrder=am,Parent=ak},{ab('UIListLayout',{Padding=UDim.new(0,H.M.Gap),
-SortOrder=Enum.SortOrder.LayoutOrder})})end return ak,al end local function 
-SetupColumns(ai,aj)aj=math.clamp(math.floor(tonumber(aj)or 1),1,ah)ai.
-ColumnCount=aj local ak,al=0 function ai.NextSectionParent(am)if aj<=1 then
-return ai.Container end if not al then local an an,al=MakeColumnHost(ai.
-Container,aj)end ak=ak%aj+1 return al[ak]end end function af.Init(ai,aj)af.
-Window=aj return af end function af.GetCurrentTabPos(ai)local aj,ak=af.Window.
-TabHolder.AbsolutePosition.Y,af.Tabs[af.SelectedTab].Frame.AbsolutePosition.Y
-return ak-aj end function af.New(ai,aj,ak,al,am)local an,ao=af.Window,n.Elements
-am=am or{}local ap=o.IsTagged(aj)and aj or nil aj=o.Text(aj)af.TabCount=af.
-TabCount+1 local aq,ar=af.TabCount,{Selected=false,Name=aj,Type='Tab'}if not j
-then if n:GetIcon(ak)then ak=n:GetIcon(ak)end if ak==''or nil then ak=nil end
-end ar.Frame=ab('TextButton',{Size=UDim2.new(1,0,0,34),BackgroundTransparency=1,
-Parent=al,ThemeTag={BackgroundColor3='Tab'}},{ab('UICorner',{CornerRadius=UDim.
-new(0,6)}),ab('TextLabel',{Name='TabLabel',AnchorPoint=Vector2.new(0,0.5),
-Position=not j and ak and UDim2.new(0,30,0.5,0)or UDim2.new(0,12,0.5,0),Text=aj,
-RichText=true,TextColor3=Color3.fromRGB(255,255,255),TextTransparency=0,FontFace
-=Font.new('rbxasset://fonts/families/GothamSSm.json',Enum.FontWeight.Regular,
-Enum.FontStyle.Normal),TextSize=12,TextXAlignment='Left',TextYAlignment='Center'
-,Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,ThemeTag={TextColor3='Text'}
-}),ab('ImageLabel',{Name='TabIcon',AnchorPoint=Vector2.new(0,0.5),Size=UDim2.
+as)return _.CardOn end local function CloseInnerDropdowns()for as,at in next,n.
+Options do if type(at)=='table'and at.Opened==true and type(at.Close)==
+'function'then local au=at.Elements and at.Elements.Frame if typeof(au)==
+'Instance'and au:IsDescendantOf(_.Container)then pcall(at.Close,at)end end end
+end function _.SetCollapsed(as,at,au)at=not not at if _.Collapsed==at then
+return end _.Collapsed=at if at then CloseInnerDropdowns()end _.AnimToken=_.
+AnimToken+1 local av,aw,ax,ay,az=_.AnimToken,at and 0 or _.ContentHeight,at and
+_.HeaderPad or(_.ContentHeight+_.HeaderPad),at and 180 or 0,_.Container.Size.Y.
+Offset local aA=aw-az local aB=GetSectionAnimInfo(aA)if _.ContainerTween then _.
+ContainerTween:Cancel()end if _.RootTween then _.RootTween:Cancel()end if _.
+ArrowTween then _.ArrowTween:Cancel()end if au then _.Animating=false _.
+Container.Size=UDim2.new(1,0,0,aw)_.Root.Size=UDim2.new(1,0,0,ax)ap.Rotation=ay
+_.BodyStroke.Enabled=_.CardOn and not at else _.Animating=true if not at then _.
+BodyStroke.Enabled=_.CardOn end _.ContainerTween=b:Create(_.Container,aB,{Size=
+UDim2.new(1,0,0,aw)})_.RootTween=b:Create(_.Root,aB,{Size=UDim2.new(1,0,0,ax)})_
+.ArrowTween=b:Create(ap,ad,{Rotation=ay})_.ContainerTween:Play()_.RootTween:
+Play()_.ArrowTween:Play()_.ContainerTween.Completed:Connect(function()if _.
+AnimToken~=av then return end _.Animating=false if not _.Collapsed then _.
+Container.Size=UDim2.new(1,0,0,_.ContentHeight)_.Root.Size=UDim2.new(1,0,0,_.
+ContentHeight+_.HeaderPad)else _.Root.Size=UDim2.new(1,0,0,_.HeaderPad)_.
+BodyStroke.Enabled=false end end)end end function _.Toggle(as)_:SetCollapsed(not
+_.Collapsed)end function _.IsCollapsed(as)return _.Collapsed end function _.
+SetTitle(as,at)at=o.Text(at)or''_.RawTitle=at am.Text=_.CardOn and CardText(at)
+or at if n.Windows and#n.Windows>0 then local au=n.Windows[#n.Windows]if au and
+au.AllElements and au.AllElements[_.Root]then au.AllElements[_.Root].title=at
+end end end C.AddSignal(aq.MouseButton1Click,function()_:Toggle()end)_:
+ApplyCard(true)if V then _:SetCollapsed(true,true)end if n.Windows and#n.Windows
+>0 then local as=n.Windows[#n.Windows]if as and as.RegisterElement then as.
+RegisterElement(_.Root,S,'Section')end end if Y then _.RemoveLocale=o.Attach(_,
+'Title',Y)end table.insert(n.SectionObjects,_)return _ end end)()aa.Tab=(
+function()local ab,ac,ad,ae,af=C.New,B.Spring.new,B.Instant.new,aa,{Window=nil,
+Tabs={},Containers={},SelectedTab=0,TabCount=0}local function 
+ResolveSectionConfig(ag,ah,ai,aj)if type(ag)=='table'and not o.IsTagged(ag)then
+local ak=ag return ak.Title,ak.Icon,ak.DefaultCollapsed,ak.Idx,ak.Unstyled,ak.
+Card end return ag,ah,ai,aj,false,nil end local ag,ah=8,4 local function 
+MakeColumnHost(ai,aj)local ak,al=ab('Frame',{Name='SectionColumns',Size=UDim2.
+new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,
+LayoutOrder=7,Parent=ai},{ab('UIListLayout',{FillDirection=Enum.FillDirection.
+Horizontal,Padding=UDim.new(0,ag),SortOrder=Enum.SortOrder.LayoutOrder,
+VerticalAlignment=Enum.VerticalAlignment.Top})}),{}for am=1,aj do al[am]=ab(
+'Frame',{Name='Column'..am,Size=UDim2.new(1/aj,-ag*(aj-1)/aj,0,0),AutomaticSize=
+Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=am,Parent=ak},{ab(
+'UIListLayout',{Padding=UDim.new(0,H.M.Gap),SortOrder=Enum.SortOrder.LayoutOrder
+})})end return ak,al end local function SetupColumns(ai,aj)aj=math.clamp(math.
+floor(tonumber(aj)or 1),1,ah)ai.ColumnCount=aj local ak,al=0 function ai.
+NextSectionParent(am)if aj<=1 then return ai.Container end if not al then local
+an an,al=MakeColumnHost(ai.Container,aj)end ak=ak%aj+1 return al[ak]end end
+function af.Init(ai,aj)af.Window=aj return af end function af.GetCurrentTabPos(
+ai)local aj,ak=af.Window.TabHolder.AbsolutePosition.Y,af.Tabs[af.SelectedTab].
+Frame.AbsolutePosition.Y return ak-aj end function af.New(ai,aj,ak,al,am)local
+an,ao=af.Window,n.Elements am=am or{}local ap=o.IsTagged(aj)and aj or nil aj=o.
+Text(aj)af.TabCount=af.TabCount+1 local aq,ar=af.TabCount,{Selected=false,Name=
+aj,Type='Tab'}if not j then if n:GetIcon(ak)then ak=n:GetIcon(ak)end if ak==''or
+nil then ak=nil end end ar.Frame=ab('TextButton',{Size=UDim2.new(1,0,0,34),
+BackgroundTransparency=1,Parent=al,ThemeTag={BackgroundColor3='Tab'}},{ab(
+'UICorner',{CornerRadius=UDim.new(0,6)}),ab('TextLabel',{Name='TabLabel',
+AnchorPoint=Vector2.new(0,0.5),Position=not j and ak and UDim2.new(0,30,0.5,0)or
+UDim2.new(0,12,0.5,0),Text=aj,RichText=true,TextColor3=Color3.fromRGB(255,255,
+255),TextTransparency=0,FontFace=Font.new(
+'rbxasset://fonts/families/GothamSSm.json',Enum.FontWeight.Regular,Enum.
+FontStyle.Normal),TextSize=12,TextXAlignment='Left',TextYAlignment='Center',Size
+=UDim2.new(1,-12,1,0),BackgroundTransparency=1,ThemeTag={TextColor3='Text'}}),
+ab('ImageLabel',{Name='TabIcon',AnchorPoint=Vector2.new(0,0.5),Size=UDim2.
 fromOffset(16,16),Position=UDim2.new(0,8,0.5,0),BackgroundTransparency=1,Image=
 ak and ak or nil,ThemeTag={ImageColor3='Text'}})})an.SidebarTabs=an.SidebarTabs
 or{}table.insert(an.SidebarTabs,{Frame=ar.Frame,Label=ar.Frame.TabLabel,Icon=ar.
@@ -1015,15 +1020,16 @@ ThemeTag={BackgroundColor3=ae and'Input'or'DialogInput'}},{ac('UICorner',{
 CornerRadius=UDim.new(0,4)}),ac('UIStroke',{ApplyStrokeMode=Enum.ApplyStrokeMode
 .Border,Transparency=ae and 0.5 or 0.65,ThemeTag={Color=ae and'InElementBorder'
 or'DialogButtonBorder'}}),af.Indicator,af.Container})local function Update()
-local ag,ah=2,af.Container.AbsoluteSize.X if not af.Input:IsFocused()or af.Input
-.TextBounds.X<=ah-2*ag then af.Input.Position=UDim2.new(0,ag,0,0)else local ai=
-af.Input.CursorPosition if ai~=-1 then local aj=string.sub(af.Input.Text,1,ai-1)
-local ak=c:GetTextSize(aj,af.Input.TextSize,af.Input.Font,Vector2.new(math.huge,
-math.huge)).X local al=af.Input.Position.X.Offset+ak if al<ag then af.Input.
-Position=UDim2.fromOffset(ag-ak,0)elseif al>ah-ag-1 then af.Input.Position=UDim2
-.fromOffset(ah-ak-ag-1,0)end end end end task.spawn(Update)C.AddSignal(af.Input:
-GetPropertyChangedSignal'Text',Update)C.AddSignal(af.Input:
-GetPropertyChangedSignal'CursorPosition',Update)C.AddSignal(af.Input.Focused,
+local ag,ah=2,af.Container.AbsoluteSize.X if ah<=2*ag or not af.Input:IsFocused(
+)or af.Input.TextBounds.X<=ah-2*ag then af.Input.Position=UDim2.new(0,ag,0,0)
+else local ai=af.Input.CursorPosition if ai~=-1 then local aj=string.sub(af.
+Input.Text,1,ai-1)local ak=c:GetTextSize(aj,af.Input.TextSize,af.Input.Font,
+Vector2.new(math.huge,math.huge)).X local al=af.Input.Position.X.Offset+ak if al
+<ag then af.Input.Position=UDim2.fromOffset(ag-ak,0)elseif al>ah-ag-1 then af.
+Input.Position=UDim2.fromOffset(ah-ak-ag-1,0)end end end end task.spawn(Update)C
+.AddSignal(af.Input:GetPropertyChangedSignal'Text',Update)C.AddSignal(af.Input:
+GetPropertyChangedSignal'CursorPosition',Update)C.AddSignal(af.Container:
+GetPropertyChangedSignal'AbsoluteSize',Update)C.AddSignal(af.Input.Focused,
 function()Update()af.Indicator.Size=UDim2.new(1,-2,0,2)af.Indicator.Position=
 UDim2.new(0,1,1,0)af.Indicator.BackgroundTransparency=0 C.OverrideTag(af.Frame,{
 BackgroundColor3=ae and'InputFocused'or'DialogHolder'})C.OverrideTag(af.
@@ -1129,39 +1135,47 @@ Size=UDim2.new(1,0,1,-45),Position=UDim2.new(0,0,0,45),BackgroundTransparency=1,
 ScrollBarImageTransparency=1,ScrollBarThickness=0,BorderSizePixel=0,CanvasSize=
 UDim2.fromScale(0,0),ScrollingDirection=Enum.ScrollingDirection.Y},{ae(
 'UIListLayout',{Padding=UDim.new(0,4)})})local aH,R={},{}local function 
-UpdateElementVisibility(S)S=string.lower(S or'')for T,U in pairs(R)do if T and T
-.Parent then local V=S==''or string.find(string.lower(U.title),S,1,true)or(U.
-description and string.find(string.lower(U.description),S,1,true))T.Visible=V
-end end task.spawn(function()task.wait(0.01)if ah and ah.TabHolder then for T,U
-in pairs(ah.TabHolder:GetChildren())do if U:IsA'ScrollingFrame'then local V=U:
-FindFirstChild'UIListLayout'if V then U.CanvasSize=UDim2.new(0,0,0,V.
-AbsoluteContentSize.Y+2)end end end end end)end local function RegisterElement(S
-,T,U,V)if S and T then R[S]={title=T,type=U or'Element',description=V or''}end
-end ah.ShowSearch=(af.Search==nil)and true or(af.Search and true or false)local
-S=ae('Frame',{Size=UDim2.new(1,0,0,35),Position=UDim2.new(0,0,0,0),
-BackgroundTransparency=0.9,ZIndex=10,Visible=ah.ShowSearch,ThemeTag={
-BackgroundColor3='Element'}},{ae('UICorner',{CornerRadius=UDim.new(0,6)}),ae(
-'UIStroke',{ApplyStrokeMode=Enum.ApplyStrokeMode.Border,Transparency=0.8,
-Thickness=1,ThemeTag={Color='ElementBorder'}})})local T=aa.Textbox(S,true)T.
-Frame.Size=UDim2.new(1,-44,1,-8)T.Frame.Position=UDim2.new(0,10,0,4)o.OnChanged(
-function()T.Input.PlaceholderText=o.t'fluent.search.placeholder'end)T.Input.
-PlaceholderText=o.t'fluent.search.placeholder'T.Input.Text=''local U=ae(
-'ImageLabel',{Size=UDim2.fromOffset(18,18),Position=UDim2.new(1,-18,0.5,0),
-AnchorPoint=Vector2.new(0.5,0.5),BackgroundTransparency=1,Image=
-'rbxassetid://10734943674',Parent=S,ThemeTag={ImageColor3='SubText'}})C.
-AddSignal(T.Input:GetPropertyChangedSignal'Text',function()local V=T.Input.Text
-UpdateElementVisibility(V)end)C.AddSignal(T.Input.FocusLost,function(V)end)C.
-AddSignal(h.InputBegan,function(V,W)if W then return end if V.KeyCode==Enum.
-KeyCode.Escape and T.Input:IsFocused()then T.Input.Text=''T.Input:ReleaseFocus()
-end end)ah.SearchElements=aH ah.AllElements=R ah.RegisterElement=RegisterElement
-ah.UpdateElementVisibility=UpdateElementVisibility local V=ae('Frame',{Size=
-UDim2.new(0,ah.TabWidth,1,ah.ShowSearch and-66 or-31),Position=UDim2.new(0,12,0,
-ah.ShowSearch and 54 or 19),BackgroundTransparency=1,ClipsDescendants=true},{ah.
-TabHolder,ap,S})ah.TabDisplay=ae('TextLabel',{RichText=true,Text='Tab',
-TextTransparency=0,FontFace=Font.new('rbxassetid://12187365364',Enum.FontWeight.
-SemiBold,Enum.FontStyle.Normal),TextSize=28,TextXAlignment='Left',TextYAlignment
-='Center',Size=UDim2.new(1,-16,0,28),Position=UDim2.fromOffset(ah.TabWidth+26,56
-),BackgroundTransparency=1,ThemeTag={TextColor3='Text'}})ah.ContainerHolder=ae(
+UpdateElementVisibility(S)S=string.lower(S or'')local function Matches(T)return
+S==''or string.find(string.lower(tostring(T.title or'')),S,1,true)~=nil or(T.
+description~=nil and string.find(string.lower(tostring(T.description)),S,1,true)
+~=nil)end local T,U={},{}for V,W in pairs(R)do if V and V.Parent and W.type==
+'Section'then table.insert(U,V)if Matches(W)then T[V]=true end end end local 
+function InMatchedSection(V)for W in pairs(T)do if V:IsDescendantOf(W)then
+return true end end return false end local V={}for W,X in pairs(R)do if W and W.
+Parent and X.type~='Section'then local Y=Matches(X)or InMatchedSection(W)W.
+Visible=Y if Y then table.insert(V,W)end end end for W,X in ipairs(U)do local Y=
+T[X]==true if not Y then for Z,_ in ipairs(V)do if _:IsDescendantOf(X)then Y=
+true break end end end X.Visible=Y end task.spawn(function()task.wait(0.01)if ah
+and ah.TabHolder then for W,X in pairs(ah.TabHolder:GetChildren())do if X:IsA
+'ScrollingFrame'then local Y=X:FindFirstChild'UIListLayout'if Y then X.
+CanvasSize=UDim2.new(0,0,0,Y.AbsoluteContentSize.Y+2)end end end end end)end
+local function RegisterElement(S,T,U,V)if S and T then R[S]={title=T,type=U or
+'Element',description=V or''}end end ah.ShowSearch=(af.Search==nil)and true or(
+af.Search and true or false)local S=ae('Frame',{Size=UDim2.new(1,0,0,35),
+Position=UDim2.new(0,0,0,0),BackgroundTransparency=0.9,ZIndex=10,Visible=ah.
+ShowSearch,ThemeTag={BackgroundColor3='Element'}},{ae('UICorner',{CornerRadius=
+UDim.new(0,6)}),ae('UIStroke',{ApplyStrokeMode=Enum.ApplyStrokeMode.Border,
+Transparency=0.8,Thickness=1,ThemeTag={Color='ElementBorder'}})})local T=aa.
+Textbox(S,true)T.Frame.Size=UDim2.new(1,-44,1,-8)T.Frame.Position=UDim2.new(0,10
+,0,4)o.OnChanged(function()T.Input.PlaceholderText=o.t
+'fluent.search.placeholder'end)T.Input.PlaceholderText=o.t
+'fluent.search.placeholder'T.Input.Text=''local U=ae('ImageLabel',{Size=UDim2.
+fromOffset(18,18),Position=UDim2.new(1,-18,0.5,0),AnchorPoint=Vector2.new(0.5,
+0.5),BackgroundTransparency=1,Image='rbxassetid://10734943674',Parent=S,ThemeTag
+={ImageColor3='SubText'}})C.AddSignal(T.Input:GetPropertyChangedSignal'Text',
+function()local V=T.Input.Text UpdateElementVisibility(V)end)C.AddSignal(T.Input
+.FocusLost,function(V)end)C.AddSignal(h.InputBegan,function(V,W)if W then return
+end if V.KeyCode==Enum.KeyCode.Escape and T.Input:IsFocused()then T.Input.Text=
+''T.Input:ReleaseFocus()end end)ah.SearchElements=aH ah.AllElements=R ah.
+RegisterElement=RegisterElement ah.UpdateElementVisibility=
+UpdateElementVisibility local V=ae('Frame',{Size=UDim2.new(0,ah.TabWidth,1,ah.
+ShowSearch and-66 or-31),Position=UDim2.new(0,12,0,ah.ShowSearch and 54 or 19),
+BackgroundTransparency=1,ClipsDescendants=true},{ah.TabHolder,ap,S})ah.
+TabDisplay=ae('TextLabel',{RichText=true,Text='Tab',TextTransparency=0,FontFace=
+Font.new('rbxassetid://12187365364',Enum.FontWeight.SemiBold,Enum.FontStyle.
+Normal),TextSize=28,TextXAlignment='Left',TextYAlignment='Center',Size=UDim2.
+new(1,-16,0,28),Position=UDim2.fromOffset(ah.TabWidth+26,56),
+BackgroundTransparency=1,ThemeTag={TextColor3='Text'}})ah.ContainerHolder=ae(
 'Frame',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1})ah.ContainerAnim=
 ae('CanvasGroup',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1})ah.
 ContainerCanvas=ae('Frame',{Size=UDim2.new(1,-ah.TabWidth-32,1,-102),Position=
@@ -1651,181 +1665,183 @@ local av=an.Frame.AbsoluteSize.X if av<=0 then return end local aw,ax=au.
 AbsoluteSize.X+10,math.max(0,av-28-60)an.DescLabel.Size=UDim2.new(1,-math.min(aw
 ,ax),0,ao.DescHeight)end ad(au:GetPropertyChangedSignal'AbsoluteSize',
 FitDropdownDesc)ad(an.Frame:GetPropertyChangedSignal'AbsoluteSize',
-FitDropdownDesc)FitDropdownDesc()end local av=af('UIListLayout',{Padding=UDim.
-new(0,3)})local aw,ax,ay,az,aA,aB=af('ScrollingFrame',{Size=UDim2.new(1,-5,1,-10
-),Position=UDim2.fromOffset(5,5),BackgroundTransparency=1,BottomImage=
-'rbxassetid://6889812791',MidImage='rbxassetid://6889812721',TopImage=
-'rbxassetid://6276641225',ScrollBarImageColor3=Color3.fromRGB(255,255,255),
-ScrollBarImageTransparency=0.75,ScrollBarThickness=5,BorderSizePixel=0,
-CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,
-ScrollingDirection=Enum.ScrollingDirection.Y},{av}),nil,nil,nil,nil,nil if ak.
-Search then aA=af('Frame',{Size=UDim2.new(1,-10,0,28),Position=UDim2.fromOffset(
-5,5),BackgroundTransparency=0.7,BackgroundColor3=Color3.fromRGB(20,20,20),
-ThemeTag={BackgroundColor3='Element'},ZIndex=24},{af('UICorner',{CornerRadius=
-UDim.new(0,4)})})aB=af('TextBox',{FontFace=Font.new
-'rbxasset://fonts/families/GothamSSm.json',TextColor3=Color3.fromRGB(200,200,200
-),TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.
-TextYAlignment.Center,BackgroundTransparency=1,Size=UDim2.new(1,-36,1,0),
-Position=UDim2.new(0,8,0,0),PlaceholderText=o.t'fluent.search.placeholder',
-PlaceholderColor3=Color3.fromRGB(120,120,120),ClearTextOnFocus=false,Text='',
-Parent=aA,ThemeTag={TextColor3='Text',PlaceholderColor3='SubText'},ZIndex=24})o.
-OnChanged(function()if aB and aB.Parent then aB.PlaceholderText=o.t
-'fluent.search.placeholder'end end)af('ImageLabel',{Size=UDim2.fromOffset(16,16)
-,Position=UDim2.new(1,-13,0.5,0),AnchorPoint=Vector2.new(0.5,0.5),
-BackgroundTransparency=1,Image='rbxassetid://10734943674',Parent=aA,
-ImageTransparency=0.3,ZIndex=25,ThemeTag={ImageColor3='SubText'}})aw.Position=
-UDim2.fromOffset(5,38)aw.Size=UDim2.new(1,-5,1,-43)local aC=0 local function 
-ApplyFilter()aC=aC+1 local aD=aC task.spawn(function()task.wait(0.01)if aD~=aC
-then return end local aE=(aB.Text or''):lower()for aF,aG in next,aw:GetChildren(
-)do if not aG:IsA'UIListLayout'then local aH=aG:FindFirstChild'ButtonLabel'and
-aG.ButtonLabel.Text or''aG.Visible=aE==''or aH:lower():find(aE,1,true)~=nil end
-end task.wait()az()task.wait()ay()task.wait()ax()end)end C.AddSignal(aB:
-GetPropertyChangedSignal'Text',ApplyFilter)end local aC if ai.
-DropdownsOutsideWindow then aC=0.25 else aC=0 end local aD,aE=af('Frame',{Size=
-UDim2.fromScale(1,0.6),BackgroundTransparency=aC,ThemeTag={BackgroundColor3=
-'DropdownHolder'}},{aA,aw,af('UICorner',{CornerRadius=UDim.new(0,7)}),af(
-'UIStroke',{ApplyStrokeMode=Enum.ApplyStrokeMode.Border,ThemeTag={Color=
-'DropdownBorder'}}),af('ImageLabel',{BackgroundTransparency=1,Image=
+FitDropdownDesc)FitDropdownDesc()end local av,aw,ax=ao.ListRow,3,ao.ListSearch
+local ay=af('UIListLayout',{Padding=UDim.new(0,aw)})local az,aA,aB,aC,aD,aE=af(
+'ScrollingFrame',{Size=UDim2.new(1,-5,1,-10),Position=UDim2.fromOffset(5,5),
+BackgroundTransparency=1,BottomImage='rbxassetid://6889812791',MidImage=
+'rbxassetid://6889812721',TopImage='rbxassetid://6276641225',
+ScrollBarImageColor3=Color3.fromRGB(255,255,255),ScrollBarImageTransparency=0.5,
+ScrollBarThickness=3,ThemeTag={ScrollBarImageColor3='SubText'},BorderSizePixel=0
+,CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,
+ScrollingDirection=Enum.ScrollingDirection.Y},{ay}),nil,nil,nil,nil,nil if ak.
+Search then aD=af('Frame',{Size=UDim2.new(1,-10,0,ax),Position=UDim2.fromOffset(
+5,5),BackgroundTransparency=0.9,BackgroundColor3=Color3.fromRGB(20,20,20),
+ThemeTag={BackgroundColor3='DropdownFrame'},ZIndex=24},{af('UICorner',{
+CornerRadius=UDim.new(0,5)}),af('UIStroke',{Transparency=0.5,ApplyStrokeMode=
+Enum.ApplyStrokeMode.Border,ThemeTag={Color='InElementBorder'}})})aE=af(
+'TextBox',{FontFace=Font.new'rbxasset://fonts/families/GothamSSm.json',
+TextColor3=Color3.fromRGB(200,200,200),TextSize=ao.ListText,TextXAlignment=Enum.
+TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,
+BackgroundTransparency=1,Size=UDim2.new(1,-36,1,0),Position=UDim2.new(0,8,0,0),
+PlaceholderText=o.t'fluent.search.placeholder',PlaceholderColor3=Color3.fromRGB(
+120,120,120),ClearTextOnFocus=false,Text='',Parent=aD,ThemeTag={TextColor3=
+'Text',PlaceholderColor3='SubText'},ZIndex=24})o.OnChanged(function()if aE and
+aE.Parent then aE.PlaceholderText=o.t'fluent.search.placeholder'end end)af(
+'ImageLabel',{Size=UDim2.fromOffset(ao.Icon,ao.Icon),Position=UDim2.new(1,-13,
+0.5,0),AnchorPoint=Vector2.new(0.5,0.5),BackgroundTransparency=1,Image=
+'rbxassetid://10734943674',Parent=aD,ImageTransparency=0.3,ZIndex=25,ThemeTag={
+ImageColor3='SubText'}})az.Position=UDim2.fromOffset(5,ax+10)az.Size=UDim2.new(1
+,-5,1,-(ax+15))local aF=0 local function ApplyFilter()aF=aF+1 local aG=aF task.
+spawn(function()task.wait(0.01)if aG~=aF then return end local aH=(aE.Text or'')
+:lower()for aI,aJ in next,az:GetChildren()do if not aJ:IsA'UIListLayout'then
+local aK=aJ:FindFirstChild'ButtonLabel'and aJ.ButtonLabel.Text or''aJ.Visible=aH
+==''or aK:lower():find(aH,1,true)~=nil end end task.wait()aC()task.wait()aB()
+task.wait()aA()end)end C.AddSignal(aE:GetPropertyChangedSignal'Text',ApplyFilter
+)end local aF if ai.DropdownsOutsideWindow then aF=0.25 else aF=0 end local aG,
+aH=af('Frame',{Size=UDim2.fromScale(1,0.6),BackgroundTransparency=aF,ThemeTag={
+BackgroundColor3='DropdownHolder'}},{aD,az,af('UICorner',{CornerRadius=UDim.new(
+0,6)}),af('UIStroke',{ApplyStrokeMode=Enum.ApplyStrokeMode.Border,ThemeTag={
+Color='DropdownBorder'}}),af('ImageLabel',{BackgroundTransparency=1,Image=
 'http://www.roblox.com/asset/?id=5554236805',ScaleType=Enum.ScaleType.Slice,
 SliceCenter=Rect.new(23,23,277,277),Size=UDim2.fromScale(1,1)+UDim2.fromOffset(
 30,30),Position=UDim2.fromOffset(-15,-15),ImageColor3=Color3.fromRGB(0,0,0),
 ImageTransparency=0.1})}),af('UISizeConstraint',{MinSize=Vector2.new(170,0)})
-local aF=af('Frame',{BackgroundTransparency=1,Size=UDim2.fromOffset(170,300),
-Parent=n.GUI,Visible=false},{aD,aE})table.insert(n.OpenFrames,aF)local aG local 
-function ResolveWindowRoot()if aG and aG.Parent then return aG end aG=nil if n.
-Window and n.Window.Root then aG=n.Window.Root elseif n.Windows and#n.Windows>0
-then for aH=#n.Windows,1,-1 do local aI=n.Windows[aH]if aI and aI.Root then aG=
-aI.Root break end end end if not aG and ap then local aH=ap.Parent while aH do
-if aH:IsA'Frame'then if aH:FindFirstChild'ContainerCanvas'or(aH.Name and aH:
-FindFirstChild'TitleBar')then aG=aH break end end if aH:IsA'ScreenGui'then break
-end aH=aH.Parent end end return aG end ResolveWindowRoot()local aH,aI,aJ=5,5,80
-local function GuiOrigin()local aK=aF.AbsoluteSize if aK.X>0 or aK.Y>0 then
-local aL,aM=aF.AbsolutePosition,aF.Position return aL.X-aM.X.Offset,aL.Y-aM.Y.
-Offset end local aL=n.GUI.AbsoluteSize if aL.Y>0 then return math.max(d.
-ViewportSize.X-aL.X,0),math.max(d.ViewportSize.Y-aL.Y,0)end return 0,0 end local 
-function ToLocal(aK,aL)local aM,aN=GuiOrigin()return aK-aM,aL-aN end local aK=0
-local function VerifyPlacement(aL,aM)aK=aK+1 local aN=aK task.spawn(function()
-for aO=1,2 do g.Heartbeat:Wait()if aN~=aK or not ak.Opened then return end local
-aP=aF.AbsolutePosition local aQ,aR=aL-aP.X,aM-aP.Y if math.abs(aQ)<1 and math.
-abs(aR)<1 then return end local aS=aF.Position aF.Position=UDim2.fromOffset(math
-.floor(aS.X.Offset+aQ),math.floor(aS.Y.Offset+aR))end end)end local function 
-GetScreenRect()local aL=n.GUI.AbsoluteSize if aL.X<1 or aL.Y<1 then aL=d.
-ViewportSize end return aL.X,aL.Y end local function GetBounds()local aL,aM=
-GetScreenRect()if not ak.OpenToRight then local aN=ResolveWindowRoot()if aN then
-local aO,aP=ToLocal(aN.AbsolutePosition.X,aN.AbsolutePosition.Y)local aQ=aN.
-AbsoluteSize return math.max(aO,0),math.max(aP,0),math.min(aO+aQ.X,aL),math.min(
-aP+aQ.Y,aM)end end return 0,0,aL,aM end local function ResolvePlacement(aL)local
-aM,aN,aO,aP=GetBounds()local aQ,aR=ToLocal(au.AbsolutePosition.X,au.
-AbsolutePosition.Y)local aS=aR+au.AbsoluteSize.Y local aT,aU,aV=(aP-aI)-(aS+aH),
-(aR-aH)-(aN+aI),nil if aL<=aT then aV=false elseif aL<=aU then aV=true else aV=
-aU>aT end local aW=math.max(aV and aU or aT,0)local aX,aY=math.max(aJ,math.min(
-aL,aW)),(aP-aN)-aI*2 if aY>0 and aX>aY then aX=aY end return aV,math.floor(aX),
-aN,aP end function ax()if not aF or not au then return end local aL,aN,aP,aQ=
-GetBounds()local aR,aS=ToLocal(au.AbsolutePosition.X,au.AbsolutePosition.Y)local
-aT,aU,aV=au.AbsoluteSize.Y,math.max(aF.Size.X.Offset,aF.AbsoluteSize.X),aF.Size.
-Y.Offset if aV<=0 then aV=aF.AbsoluteSize.Y end local aW,aX if ak.OpenToRight
-then local aY,aZ,a_=ResolveWindowRoot(),nil,nil if aY then local a0,a1=ToLocal(
-aY.AbsolutePosition.X,aY.AbsolutePosition.Y)aZ=a0 a_=a0+aY.AbsoluteSize.X aX=a1+
-aY.AbsoluteSize.Y/2-aV/2 else aZ=aR a_=aR+au.AbsoluteSize.X aX=aS+aT/2-aV/2 end
-aW=a_+aH if aW+aU>aP-aI then local a0=aZ-aU-aH aW=(a0>=aL+aI)and a0 or math.max(
-aL+aI,aP-aI-aU)end ak.OpenUp=false else local aY aY,aV=ResolvePlacement(aV)ak.
-OpenUp=aY if aV~=aF.Size.Y.Offset then aF.Size=UDim2.fromOffset(aF.Size.X.Offset
-,aV)end aW=aR-1 if aW+aU>aP-aI then aW=aP-aI-aU end if aW<aL+aI then aW=aL+aI
-end aX=aY and(aS-aH-aV)or(aS+aT+aH)end local aY=math.max(aN+aI,aQ-aI-aV)aX=math.
-clamp(aX,aN+aI,aY)if ak.OpenUp then aD.AnchorPoint=Vector2.new(0,1)aD.Position=
-UDim2.fromScale(0,1)else aD.AnchorPoint=Vector2.new(0,0)aD.Position=UDim2.
-fromScale(0,0)end ak.SavedY=nil aF.Position=UDim2.fromOffset(math.floor(aW),math
-.floor(aX))if ak.Opened then local aZ,a_=GuiOrigin()VerifyPlacement(math.floor(
-aW)+aZ,math.floor(aX)+a_)end end local aL=0 function ay()if not aF or not aD
-then return end local aN=0 for aP,aQ in next,aw:GetChildren()do if not aQ:IsA
-'UIListLayout'and aQ.Visible then aN=aN+1 end end local aP,aQ,aR,aS=32,3,ak.
-Search and 38 or 0,10 local aT,aU=(aN>0)and(aN*aP+(aN-1)*aQ+aS+aR)or(aS+aR),392
-local aV=math.min(aT,aU)if ak.OpenToRight then local aW,aX,aY,aZ=GetBounds()
-local a_=(aZ-aX)-aI*2 if a_>0 then aV=math.floor(math.min(aV,a_))end else local
-aX aX,aV=ResolvePlacement(aV)end local aX=math.max(170,aL>0 and(aL+20)or 170)if
-ai.FullWidth and au then aX=math.max(aX,au.AbsoluteSize.X)end local aY,aZ,a_=
-GetBounds()local a0=math.floor((a_-aY)-aI*2)if a0>0 then aX=math.min(aX,a0)end
-if aE then aE.MinSize=Vector2.new(math.min(170,math.max(aX,1)),0)end aF.Size=
-UDim2.fromOffset(aX,aV)local a1=aN>10 aD.Size=UDim2.fromScale(1,a1 and(aV/math.
-max(aV,1))or 1)end function az()aw.CanvasSize=UDim2.fromOffset(0,av.
-AbsoluteContentSize.Y)end ay()ax()az()local function Reflow()if not ak.Opened
-then return end ay()ax()end C.AddSignal(au:GetPropertyChangedSignal
-'AbsolutePosition',function()if ak.OpenToRight then return end ay()ax()end)if aG
-then C.AddSignal(aG:GetPropertyChangedSignal'AbsolutePosition',Reflow)C.
-AddSignal(aG:GetPropertyChangedSignal'AbsoluteSize',Reflow)end C.AddSignal(d:
-GetPropertyChangedSignal'ViewportSize',Reflow)C.AddSignal(av:
-GetPropertyChangedSignal'AbsoluteContentSize',function()az()task.wait()ay()task.
-wait()ax()end)C.AddSignal(au.MouseButton1Click,function()if ak.Opened then ak:
-Close()return end ak:Open()end)C.AddSignal(au.InputBegan,function(aN)if aN.
+local aI=af('Frame',{BackgroundTransparency=1,Size=UDim2.fromOffset(170,300),
+Parent=n.GUI,Visible=false},{aG,aH})table.insert(n.OpenFrames,aI)local aJ local 
+function ResolveWindowRoot()if aJ and aJ.Parent then return aJ end aJ=nil if n.
+Window and n.Window.Root then aJ=n.Window.Root elseif n.Windows and#n.Windows>0
+then for aK=#n.Windows,1,-1 do local aL=n.Windows[aK]if aL and aL.Root then aJ=
+aL.Root break end end end if not aJ and ap then local aK=ap.Parent while aK do
+if aK:IsA'Frame'then if aK:FindFirstChild'ContainerCanvas'or(aK.Name and aK:
+FindFirstChild'TitleBar')then aJ=aK break end end if aK:IsA'ScreenGui'then break
+end aK=aK.Parent end end return aJ end ResolveWindowRoot()local aK,aL,aM=5,5,80
+local function GuiOrigin()local aN=aI.AbsoluteSize if aN.X>0 or aN.Y>0 then
+local aO,aP=aI.AbsolutePosition,aI.Position return aO.X-aP.X.Offset,aO.Y-aP.Y.
+Offset end local aO=n.GUI.AbsoluteSize if aO.Y>0 then return math.max(d.
+ViewportSize.X-aO.X,0),math.max(d.ViewportSize.Y-aO.Y,0)end return 0,0 end local 
+function ToLocal(aN,aO)local aP,aQ=GuiOrigin()return aN-aP,aO-aQ end local aN=0
+local function VerifyPlacement(aO,aP)aN=aN+1 local aQ=aN task.spawn(function()
+for aR=1,2 do g.Heartbeat:Wait()if aQ~=aN or not ak.Opened then return end local
+aS=aI.AbsolutePosition local aT,aU=aO-aS.X,aP-aS.Y if math.abs(aT)<1 and math.
+abs(aU)<1 then return end local aV=aI.Position aI.Position=UDim2.fromOffset(math
+.floor(aV.X.Offset+aT),math.floor(aV.Y.Offset+aU))end end)end local function 
+GetScreenRect()local aO=n.GUI.AbsoluteSize if aO.X<1 or aO.Y<1 then aO=d.
+ViewportSize end return aO.X,aO.Y end local function GetBounds()local aO,aP=
+GetScreenRect()if not ak.OpenToRight then local aQ=ResolveWindowRoot()if aQ then
+local aR,aS=ToLocal(aQ.AbsolutePosition.X,aQ.AbsolutePosition.Y)local aT=aQ.
+AbsoluteSize return math.max(aR,0),math.max(aS,0),math.min(aR+aT.X,aO),math.min(
+aS+aT.Y,aP)end end return 0,0,aO,aP end local function ResolvePlacement(aO)local
+aP,aQ,aR,aS=GetBounds()local aT,aU=ToLocal(au.AbsolutePosition.X,au.
+AbsolutePosition.Y)local aV=aU+au.AbsoluteSize.Y local aW,aX,aY=(aS-aL)-(aV+aK),
+(aU-aK)-(aQ+aL),nil if aO<=aW then aY=false elseif aO<=aX then aY=true else aY=
+aX>aW end local aZ=math.max(aY and aX or aW,0)local a_,a0=math.max(aM,math.min(
+aO,aZ)),(aS-aQ)-aL*2 if a0>0 and a_>a0 then a_=a0 end return aY,math.floor(a_),
+aQ,aS end function aA()if not aI or not au then return end local aO,aQ,aS,aT=
+GetBounds()local aU,aV=ToLocal(au.AbsolutePosition.X,au.AbsolutePosition.Y)local
+aW,aX,aY=au.AbsoluteSize.Y,math.max(aI.Size.X.Offset,aI.AbsoluteSize.X),aI.Size.
+Y.Offset if aY<=0 then aY=aI.AbsoluteSize.Y end local aZ,a_ if ak.OpenToRight
+then local a0,a1,a2=ResolveWindowRoot(),nil,nil if a0 then local a3,a4=ToLocal(
+a0.AbsolutePosition.X,a0.AbsolutePosition.Y)a1=a3 a2=a3+a0.AbsoluteSize.X a_=a4+
+a0.AbsoluteSize.Y/2-aY/2 else a1=aU a2=aU+au.AbsoluteSize.X a_=aV+aW/2-aY/2 end
+aZ=a2+aK if aZ+aX>aS-aL then local a3=a1-aX-aK aZ=(a3>=aO+aL)and a3 or math.max(
+aO+aL,aS-aL-aX)end ak.OpenUp=false else local a0 a0,aY=ResolvePlacement(aY)ak.
+OpenUp=a0 if aY~=aI.Size.Y.Offset then aI.Size=UDim2.fromOffset(aI.Size.X.Offset
+,aY)end aZ=aU-1 if aZ+aX>aS-aL then aZ=aS-aL-aX end if aZ<aO+aL then aZ=aO+aL
+end a_=a0 and(aV-aK-aY)or(aV+aW+aK)end local a0=math.max(aQ+aL,aT-aL-aY)a_=math.
+clamp(a_,aQ+aL,a0)if ak.OpenUp then aG.AnchorPoint=Vector2.new(0,1)aG.Position=
+UDim2.fromScale(0,1)else aG.AnchorPoint=Vector2.new(0,0)aG.Position=UDim2.
+fromScale(0,0)end ak.SavedY=nil aI.Position=UDim2.fromOffset(math.floor(aZ),math
+.floor(a_))if ak.Opened then local a1,a2=GuiOrigin()VerifyPlacement(math.floor(
+aZ)+a1,math.floor(a_)+a2)end end local aO=0 function aB()if not aI or not aG
+then return end local aQ=0 for aS,aT in next,az:GetChildren()do if not aT:IsA
+'UIListLayout'and aT.Visible then aQ=aQ+1 end end local aS,aT,aU,aV=av,aw,ak.
+Search and(ax+10)or 0,10 local aW,aX=(aQ>0)and(aQ*aS+(aQ-1)*aT+aV+aU)or(aV+aU),
+392 local aY=math.min(aW,aX)if ak.OpenToRight then local aZ,a_,a0,a1=GetBounds()
+local a2=(a1-a_)-aL*2 if a2>0 then aY=math.floor(math.min(aY,a2))end else local
+a_ a_,aY=ResolvePlacement(aY)end local a_=math.max(170,aO>0 and(aO+20)or 170)if
+ai.FullWidth and au then a_=math.max(a_,au.AbsoluteSize.X)end local a0,a1,a2=
+GetBounds()local a3=math.floor((a2-a0)-aL*2)if a3>0 then a_=math.min(a_,a3)end
+if aH then aH.MinSize=Vector2.new(math.min(170,math.max(a_,1)),0)end aI.Size=
+UDim2.fromOffset(a_,aY)local a4=aQ>10 aG.Size=UDim2.fromScale(1,a4 and(aY/math.
+max(aY,1))or 1)end function aC()az.CanvasSize=UDim2.fromOffset(0,ay.
+AbsoluteContentSize.Y)end aB()aA()aC()local function Reflow()if not ak.Opened
+then return end aB()aA()end C.AddSignal(au:GetPropertyChangedSignal
+'AbsolutePosition',function()if ak.OpenToRight then return end aB()aA()end)if aJ
+then C.AddSignal(aJ:GetPropertyChangedSignal'AbsolutePosition',Reflow)C.
+AddSignal(aJ:GetPropertyChangedSignal'AbsoluteSize',Reflow)end C.AddSignal(d:
+GetPropertyChangedSignal'ViewportSize',Reflow)C.AddSignal(ay:
+GetPropertyChangedSignal'AbsoluteContentSize',function()aC()task.wait()aB()task.
+wait()aA()end)C.AddSignal(au.MouseButton1Click,function()if ak.Opened then ak:
+Close()return end ak:Open()end)C.AddSignal(au.InputBegan,function(aQ)if aQ.
 UserInputType==Enum.UserInputType.Touch then if ak.Opened then ak:Close()return
 end ak:Open()end end)C.AddSignal(aq:GetPropertyChangedSignal'Text',function()for
-aN,aP in next,aw:GetChildren()do if not aP:IsA'UIListLayout'then aP.Visible=true
-end end ay()ax()end)C.AddSignal(h.InputBegan,function(aN)if aN.UserInputType==
-Enum.UserInputType.MouseButton1 or aN.UserInputType==Enum.UserInputType.Touch
-then local aP,aQ,aR=aD.AbsolutePosition,aD.AbsoluteSize,21 if e.X<aP.X or e.X>aP
-.X+aQ.X or e.Y<(aP.Y-aR)or e.Y>aP.Y+aQ.Y+aR then ak:Close()end end end)local aN=
-ag.ScrollFrame function ak.Open(aP)ak.Opened=true if ak.OpenToRight then ak.
-SavedY=nil end for aQ,aR in ipairs(n.OpenFrames)do if aR~=aF and aR.Visible then
-aR.Visible=false end end if aB and not ak.KeepSearch then aB.Text=''end aF.
-Visible=true ay()ax()az()task.wait()b:Create(aD,TweenInfo.new(0.3,Enum.
+aQ,aS in next,az:GetChildren()do if not aS:IsA'UIListLayout'then aS.Visible=true
+end end aB()aA()end)C.AddSignal(h.InputBegan,function(aQ)if aQ.UserInputType==
+Enum.UserInputType.MouseButton1 or aQ.UserInputType==Enum.UserInputType.Touch
+then local aS,aT,aU=aG.AbsolutePosition,aG.AbsoluteSize,21 if e.X<aS.X or e.X>aS
+.X+aT.X or e.Y<(aS.Y-aU)or e.Y>aS.Y+aT.Y+aU then ak:Close()end end end)local aQ=
+ag.ScrollFrame function ak.Open(aS)ak.Opened=true if ak.OpenToRight then ak.
+SavedY=nil end for aT,aU in ipairs(n.OpenFrames)do if aU~=aI and aU.Visible then
+aU.Visible=false end end if aE and not ak.KeepSearch then aE.Text=''end aI.
+Visible=true aB()aA()aC()task.wait()b:Create(aG,TweenInfo.new(0.3,Enum.
 EasingStyle.Quart,Enum.EasingDirection.Out),{Size=UDim2.fromScale(1,1)}):Play()
-end function ak.Close(aP)ak.Opened=false if ak.OpenToRight then ak.SavedY=nil
-end aD.Size=UDim2.fromScale(1,1)aF.Visible=false ak:Display()for aQ,aR in next,
-aw:GetChildren()do if not aR:IsA'UIListLayout'then aR.Visible=true end end end
-function ak.Display(aP)SyncOptions()EnsureMultiValue()local aQ=''if ai.Multi
-then for aR,aS in ipairs(ak.Options)do if ak.Value[aS.Value]then aQ=aQ..aS.Label
-..', 'end end aQ=aQ:sub(1,#aQ-2)else aQ=ak:GetLabel(ak.Value)end aq.Text=(aQ==''
-and'--'or aQ)end function ak.GetActiveValues(aP)EnsureMultiValue()if ai.Multi
-then local aQ={}for aR,aS in next,ak.Value do table.insert(aQ,aR)end return aQ
-else return ak.Value and 1 or 0 end end function ak.SetActiveValues(aP,aQ)ak.
-Value=aQ n:SafeCallback(ak.Callback,ak.Value)n:SafeCallback(ak.Changed,ak.Value)
-ak:BuildDropdownList()end function ak.BuildDropdownList(aP)SyncOptions()
-EnsureMultiValue()local aQ={}for aR,aS in next,aw:GetChildren()do if not aS:IsA
-'UIListLayout'then aS:Destroy()end end local aR=0 for aS,aT in ipairs(ak.Options
-)do local aU,aV,aX={},aT.Value,aT.Label aR=aR+1 local aY,aZ=af('Frame',{Size=
+end function ak.Close(aS)ak.Opened=false if ak.OpenToRight then ak.SavedY=nil
+end aG.Size=UDim2.fromScale(1,1)aI.Visible=false ak:Display()for aT,aU in next,
+az:GetChildren()do if not aU:IsA'UIListLayout'then aU.Visible=true end end end
+function ak.Display(aS)SyncOptions()EnsureMultiValue()local aT=''if ai.Multi
+then for aU,aV in ipairs(ak.Options)do if ak.Value[aV.Value]then aT=aT..aV.Label
+..', 'end end aT=aT:sub(1,#aT-2)else aT=ak:GetLabel(ak.Value)end aq.Text=(aT==''
+and'--'or aT)end function ak.GetActiveValues(aS)EnsureMultiValue()if ai.Multi
+then local aT={}for aU,aV in next,ak.Value do table.insert(aT,aU)end return aT
+else return ak.Value and 1 or 0 end end function ak.SetActiveValues(aS,aT)ak.
+Value=aT n:SafeCallback(ak.Callback,ak.Value)n:SafeCallback(ak.Changed,ak.Value)
+ak:BuildDropdownList()end function ak.BuildDropdownList(aS)SyncOptions()
+EnsureMultiValue()local aT={}for aU,aV in next,az:GetChildren()do if not aV:IsA
+'UIListLayout'then aV:Destroy()end end local aU=0 for aV,aW in ipairs(ak.Options
+)do local aX,aY,a_={},aW.Value,aW.Label aU=aU+1 local a0,a1=af('Frame',{Size=
 UDim2.fromOffset(4,14),BackgroundColor3=Color3.fromRGB(76,194,255),Position=
-UDim2.fromOffset(-1,16),AnchorPoint=Vector2.new(0,0.5),ThemeTag={
-BackgroundColor3='Accent'}},{af('UICorner',{CornerRadius=UDim.new(0,2)})}),af(
-'TextLabel',{FontFace=Font.new'rbxasset://fonts/families/GothamSSm.json',Text=aX
-,TextColor3=Color3.fromRGB(200,200,200),TextSize=13,TextXAlignment=Enum.
+UDim2.new(0,-1,0.5,0),AnchorPoint=Vector2.new(0,0.5),ThemeTag={BackgroundColor3=
+'Accent'}},{af('UICorner',{CornerRadius=UDim.new(0,2)})}),af('TextLabel',{
+FontFace=Font.new'rbxasset://fonts/families/GothamSSm.json',Text=a_,TextColor3=
+Color3.fromRGB(200,200,200),TextSize=ao.ListText,TextXAlignment=Enum.
 TextXAlignment.Left,BackgroundColor3=Color3.fromRGB(255,255,255),AutomaticSize=
 Enum.AutomaticSize.Y,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Position
 =UDim2.fromOffset(10,0),Name='ButtonLabel',ThemeTag={TextColor3='Text'}})local
-a_,a0=af('TextButton',{Size=UDim2.new(1,-5,0,32),BackgroundTransparency=1,ZIndex
-=23,Text='',Parent=aw,ThemeTag={BackgroundColor3='DropdownOption'}},{aY,aZ,af(
-'UICorner',{CornerRadius=UDim.new(0,6)})}),nil if ai.Multi then a0=ak.Value[aV]
-else a0=ak.Value==aV end local a1,a2=C.SpringMotor(1,a_,'BackgroundTransparency'
-)local a3,a4=C.SpringMotor(1,aY,'BackgroundTransparency')local a5=B.SingleMotor.
-new(6)a5:onStep(function(a6)aY.Size=UDim2.new(0,4,0,a6)end)C.AddSignal(a_.
-MouseEnter,function()a2(a0 and 0.85 or 0.89)end)C.AddSignal(a_.MouseLeave,
-function()a2(a0 and 0.89 or 1)end)C.AddSignal(a_.MouseButton1Down,function()a2(
-0.92)end)C.AddSignal(a_.MouseButton1Up,function()a2(a0 and 0.85 or 0.89)end)
-function aU.UpdateButton(a6)if ai.Multi then a0=ak.Value[aV]if a0 then a2(0.89)
-end else a0=ak.Value==aV a2(a0 and 0.89 or 1)end a5:setGoal(B.Spring.new(a0 and
-14 or 6,{frequency=6}))a4(a0 and 0 or 1)end ad(a_.Activated,function()if ai.
-NoSelect then return end local a6=not a0 if ak:GetActiveValues()==1 and not a6
-and not ai.AllowNull then else if ai.Multi then a0=a6 ak.Value[aV]=a0 and true
-or nil else a0=a6 ak.Value=a0 and aV or nil for a7,a8 in next,aQ do a8:
-UpdateButton()end end aU:UpdateButton()ak:Display()n:SafeCallback(ak.Callback,ak
-.Value)n:SafeCallback(ak.Changed,ak.Value)end end)aU:UpdateButton()ak:Display()
-if ai.OnRowBuilt then n:SafeCallback(ai.OnRowBuilt,{Button=a_,Label=aZ,Selector=
-aY,Value=aV,Text=aZ.Text})end aQ[a_]=aU end aL=0 for aS,aT in next,aQ do if aS.
-ButtonLabel then local aU=aS.ButtonLabel.TextBounds.X if aU>aL then aL=aU end
-end end aL=math.max(150,aL+40)az()ay()if ak.Opened then ax()end end function ak.
-SetValues(aP,aQ)if aQ then ApplyValues(aQ)end ak:BuildDropdownList()end function
-ak.OnChanged(aP,aQ)ak.Changed=aQ aQ(ak.Value)end function ak.SetValue(aP,aQ)
-SyncOptions()if ak.Multi then local aR={}for aS,aT in next,aQ do if table.find(
-ak.ValueList,aS)then aR[aS]=true end end ak.Value=aR else if not aQ then ak.
-Value=nil elseif table.find(ak.ValueList,aQ)then ak.Value=aQ end end ak:
+a2,a3=af('TextButton',{Size=UDim2.new(1,-5,0,av),BackgroundTransparency=1,ZIndex
+=23,Text='',Parent=az,ThemeTag={BackgroundColor3='DropdownOption'}},{a0,a1,af(
+'UICorner',{CornerRadius=UDim.new(0,6)})}),nil if ai.Multi then a3=ak.Value[aY]
+else a3=ak.Value==aY end local a4,a5=C.SpringMotor(1,a2,'BackgroundTransparency'
+)local a6,a7=C.SpringMotor(1,a0,'BackgroundTransparency')local a8=B.SingleMotor.
+new(6)a8:onStep(function(a9)a0.Size=UDim2.new(0,4,0,a9)end)C.AddSignal(a2.
+MouseEnter,function()a5(a3 and 0.85 or 0.89)end)C.AddSignal(a2.MouseLeave,
+function()a5(a3 and 0.89 or 1)end)C.AddSignal(a2.MouseButton1Down,function()a5(
+0.92)end)C.AddSignal(a2.MouseButton1Up,function()a5(a3 and 0.85 or 0.89)end)
+function aX.UpdateButton(a9)if ai.Multi then a3=ak.Value[aY]if a3 then a5(0.89)
+end else a3=ak.Value==aY a5(a3 and 0.89 or 1)end a8:setGoal(B.Spring.new(a3 and
+14 or 6,{frequency=6}))a7(a3 and 0 or 1)end ad(a2.Activated,function()if ai.
+NoSelect then return end local a9=not a3 if ak:GetActiveValues()==1 and not a9
+and not ai.AllowNull then else if ai.Multi then a3=a9 ak.Value[aY]=a3 and true
+or nil else a3=a9 ak.Value=a3 and aY or nil for ba,bb in next,aT do bb:
+UpdateButton()end end aX:UpdateButton()ak:Display()n:SafeCallback(ak.Callback,ak
+.Value)n:SafeCallback(ak.Changed,ak.Value)end end)aX:UpdateButton()ak:Display()
+if ai.OnRowBuilt then n:SafeCallback(ai.OnRowBuilt,{Button=a2,Label=a1,Selector=
+a0,Value=aY,Text=a1.Text})end aT[a2]=aX end aO=0 for aV,aW in next,aT do if aV.
+ButtonLabel then local aX=aV.ButtonLabel.TextBounds.X if aX>aO then aO=aX end
+end end aO=math.max(150,aO+40)aC()aB()if ak.Opened then aA()end end function ak.
+SetValues(aS,aT)if aT then ApplyValues(aT)end ak:BuildDropdownList()end function
+ak.OnChanged(aS,aT)ak.Changed=aT aT(ak.Value)end function ak.SetValue(aS,aT)
+SyncOptions()if ak.Multi then local aU={}for aV,aW in next,aT do if table.find(
+ak.ValueList,aV)then aU[aV]=true end end ak.Value=aU else if not aT then ak.
+Value=nil elseif table.find(ak.ValueList,aT)then ak.Value=aT end end ak:
 BuildDropdownList()n:SafeCallback(ak.Callback,ak.Value)n:SafeCallback(ak.Changed
-,ak.Value)end function ak.Destroy(aP)an:Destroy()n.Options[ah]=nil end ak:
-BuildDropdownList()ak:Display()local aP={}if type(ai.Default)=='string'then
-local aQ=table.find(ak.ValueList,ai.Default)if aQ then table.insert(aP,aQ)end
-elseif type(ai.Default)=='table'then for aQ,aR in next,ai.Default do local aS=
-table.find(ak.ValueList,aR)if aS then table.insert(aP,aS)end end elseif type(ai.
-Default)=='number'and ak.ValueList[ai.Default]~=nil then table.insert(aP,ai.
-Default)end if next(aP)then for aQ=1,#aP do local aR=aP[aQ]if ai.Multi then ak.
-Value[ak.ValueList[aR] ]=true else ak.Value=ak.ValueList[aR]end if not ai.Multi
+,ak.Value)end function ak.Destroy(aS)an:Destroy()n.Options[ah]=nil end ak:
+BuildDropdownList()ak:Display()local aS={}if type(ai.Default)=='string'then
+local aT=table.find(ak.ValueList,ai.Default)if aT then table.insert(aS,aT)end
+elseif type(ai.Default)=='table'then for aT,aU in next,ai.Default do local aV=
+table.find(ak.ValueList,aU)if aV then table.insert(aS,aV)end end elseif type(ai.
+Default)=='number'and ak.ValueList[ai.Default]~=nil then table.insert(aS,ai.
+Default)end if next(aS)then for aT=1,#aS do local aU=aS[aT]if ai.Multi then ak.
+Value[ak.ValueList[aU] ]=true else ak.Value=ak.ValueList[aU]end if not ai.Multi
 then break end end ak:BuildDropdownList()ak:Display()end n.Options[ah]=ak return
 ak end return ae end)()ac.Paragraph=(function()local ae={}ae.__index=ae ae.
 __type='Paragraph'function ae.New(af,ag)ag.Content=ag.Content or''local ah=aa.
@@ -2064,8 +2080,8 @@ AddSignal(ar.InputBegan,function(aH)if aH.UserInputType==Enum.UserInputType.
 MouseButton1 or aH.UserInputType==Enum.UserInputType.Touch then while h:
 IsMouseButtonPressed(Enum.UserInputType.MouseButton1)do local aI=ar.
 AbsolutePosition.X local aJ=aI+ar.AbsoluteSize.X local aK,aL=math.clamp(e.X,aI,
-aJ),ar.AbsolutePosition.Y local aN=aL+ar.AbsoluteSize.Y local aP=math.clamp(e.Y,
-aL,aN)an=(aK-aI)/(aJ-aI)ao=1-((aP-aL)/(aN-aL))Display()k:Wait()end end end)C.
+aJ),ar.AbsolutePosition.Y local aM=aL+ar.AbsoluteSize.Y local aN=math.clamp(e.Y,
+aL,aM)an=(aK-aI)/(aJ-aI)ao=1-((aN-aL)/(aM-aL))Display()k:Wait()end end end)C.
 AddSignal(ay.InputBegan,function(aH)if aH.UserInputType==Enum.UserInputType.
 MouseButton1 or aH.UserInputType==Enum.UserInputType.Touch then while h:
 IsMouseButtonPressed(Enum.UserInputType.MouseButton1)do local aI=ay.
