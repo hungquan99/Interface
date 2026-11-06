@@ -1,3 +1,9 @@
+--[[
+    ©️ 2026-2027 @hungquan99
+    Based on:
+    - Fluent UI by @dawid: https://github.com/dawid-scripts/Fluent
+    - Fluent Plus: https://github.com/discoart/fluent-plus-v2
+]]--
 game:GetService'Lighting'game:GetService'RunService'local a=game:GetService
 'Players'.LocalPlayer game:GetService'UserInputService'local b,c,d,e,f,g,h=game:
 GetService'TweenService',game:GetService'TextService',game:GetService'Workspace'
